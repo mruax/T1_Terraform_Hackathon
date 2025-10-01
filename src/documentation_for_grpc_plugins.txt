@@ -1,0 +1,3 @@
+https://grpc.io/docs/what-is-grpc/introduction/
+https://github.com/grpc-ecosystem/awesome-grpc
+https://github.com/hashicorp/go-plugin
