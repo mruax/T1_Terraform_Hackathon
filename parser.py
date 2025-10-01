@@ -116,4 +116,5 @@ def parse_log_file(path: str):
 
 if __name__ == "__main__":
     for e in parse_log_file("src/1. plan_test-k801vip_tflog.json"):
-        print(json.dumps(e, ensure_ascii=False, indent=2))
+        if e["section_type"]:
+            print(json.dumps(e, ensure_ascii=False, indent=2))

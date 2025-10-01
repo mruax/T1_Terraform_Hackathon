@@ -7,6 +7,7 @@ from enum import Enum
 
 # ==================== ENHANCED LOG LEVEL & TIMESTAMP EXTRACTION ====================
 
+
 class LogLevel(Enum):
     TRACE = 0
     DEBUG = 1
@@ -14,6 +15,7 @@ class LogLevel(Enum):
     WARN = 3
     ERROR = 4
     FATAL = 5
+
 
 @dataclass
 class LogEntry:
@@ -27,6 +29,7 @@ class LogEntry:
     http_request: Optional[Dict[str, Any]] = None
     http_response: Optional[Dict[str, Any]] = None
     section_type: Optional[str] = None  # 'plan', 'apply', 'validation', etc.
+
 
 class TerraformLogParser:
     # Регулярные выражения для извлечения timestamp
@@ -238,7 +241,7 @@ class TerraformLogParser:
             http_response=http_resp,
             section_type=section
         )
-    
+
     def parse_multiline_json(self, lines: List[str], start_idx: int) -> Tuple[Optional[Dict], int]:
         """Извлечение многострочного JSON блока"""
         depth = 0
@@ -293,6 +296,7 @@ app = FastAPI(title="Terraform Log Processor")
 
 parser = TerraformLogParser()
 
+
 class LogEntryResponse(BaseModel):
     timestamp: str
     level: str
@@ -303,6 +307,7 @@ class LogEntryResponse(BaseModel):
     terraform_metadata: Optional[Dict[str, Any]] = None
     has_http_request: bool = False
     has_http_response: bool = False
+
 
 @app.post("/upload-log/")
 async def upload_log(file: UploadFile = File(...)):
@@ -349,6 +354,7 @@ async def upload_log(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing log: {str(e)}")
 
+
 @app.get("/")
 async def root():
     return {
@@ -364,8 +370,10 @@ async def root():
 
 if __name__ == "__main__":
     # Пример использования парсера
-    sample_log = '''{"@level":"info","@message":"Terraform version: 1.13.1","@timestamp":"2025-09-09T15:31:32.757289+03:00"}
-{"@level":"trace","@message":"backend/local: starting Plan operation","@timestamp":"2025-09-09T15:31:32.814270+03:00"}'''
+    #sample_log = '''{"@level":"info","@message":"Terraform version: 1.13.1","@timestamp":"2025-09-09T15:31:32.757289+03:00"}
+#{"@level":"trace","@message":"backend/local: starting Plan operation","@timestamp":"2025-09-09T15:31:32.814270+03:00"}'''
+    with open("src/5. tflog.json", mode='r', encoding='utf-8') as f:
+        sample_log = "\n".join(f.readlines())
     
     print("=== Terraform Log Parser Example ===\n")
     
