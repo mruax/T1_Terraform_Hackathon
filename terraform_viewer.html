@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terraform Log Viewer Pro</title>
+    <title>Terraform Log Viewer 2.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -15,23 +16,18 @@
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
             background: #fafafa;
             min-height: 100vh;
-            padding: 40px 20px;
             color: #1d1d1f;
         }
 
         .container {
             max-width: 1600px;
             margin: 0 auto;
-            background: #ffffff;
-            border-radius: 18px;
-            overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            padding: 20px;
         }
 
         .header {
-            padding: 60px 40px;
+            padding: 40px 0;
             text-align: center;
-            border-bottom: 1px solid #e5e5e7;
         }
 
         .header h1 {
@@ -39,391 +35,263 @@
             font-weight: 700;
             letter-spacing: -0.02em;
             margin-bottom: 12px;
-            color: #1d1d1f;
         }
 
         .header p {
             font-size: 17px;
             color: #6e6e73;
-            font-weight: 400;
-            letter-spacing: -0.01em;
         }
 
-        .upload-section {
-            padding: 60px 40px;
-        }
-
-        .upload-box {
-            border: 2px solid #d2d2d7;
-            border-radius: 12px;
-            padding: 80px 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: #fafafa;
-        }
-
-        .upload-box:hover {
-            border-color: #1d1d1f;
-            background: #f5f5f7;
-        }
-
-        .upload-box.dragover {
-            border-color: #1d1d1f;
-            background: #f5f5f7;
-            transform: scale(1.01);
-        }
-
-        .upload-box p:first-of-type {
-            font-size: 21px;
-            color: #1d1d1f;
-            margin-bottom: 12px;
-            font-weight: 600;
-            letter-spacing: -0.01em;
-        }
-
-        .upload-box p:last-of-type {
-            font-size: 15px;
-            color: #6e6e73;
-            font-weight: 400;
-        }
-
-        .controls {
-            padding: 24px 40px;
-            background: #fafafa;
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            align-items: center;
-            border-bottom: 1px solid #e5e5e7;
-        }
-
-        .filter-input {
-            flex: 1;
-            min-width: 220px;
-            padding: 12px 16px;
-            border: 1px solid #d2d2d7;
-            border-radius: 10px;
-            font-size: 15px;
-            background: #ffffff;
-            transition: all 0.2s;
-            color: #1d1d1f;
-        }
-
-        .filter-input:focus {
-            outline: none;
-            border-color: #1d1d1f;
-        }
-
-        .filter-input::placeholder {
-            color: #86868b;
-        }
-
-        .level-filter {
+        /* Tabs */
+        .tabs {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e5e5e7;
         }
 
-        .level-btn {
-            padding: 8px 18px;
-            border: 1px solid #d2d2d7;
-            background: #ffffff;
-            border-radius: 10px;
+        .tab {
+            padding: 12px 32px;
+            background: none;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: #6e6e73;
             cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
             color: #1d1d1f;
-            letter-spacing: -0.01em;
         }
 
-        .level-btn:hover {
-            background: #f5f5f7;
-            border-color: #86868b;
+        .tab.active {
+            color: #1d1d1f;
         }
 
-        .level-btn.active {
-            border-color: #1d1d1f;
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
             background: #1d1d1f;
-            color: #ffffff;
         }
 
-        /* Advanced Search Panel */
-        .advanced-search {
-            padding: 24px 40px;
-            background: #f5f5f7;
-            border-bottom: 1px solid #e5e5e7;
+        .tab-content {
             display: none;
         }
 
-        .advanced-search.visible {
+        .tab-content.active {
             display: block;
         }
 
-        .advanced-search-grid {
+        /* Sidebar */
+        .layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
         }
 
-        .search-field {
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            height: fit-content;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .sidebar h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #1d1d1f;
+        }
+
+        .file-list {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
-        .search-field label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1d1d1f;
+        .file-item {
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
         }
 
-        .search-field select,
-        .search-field input {
-            padding: 10px 14px;
+        .file-item:hover {
+            background: #f5f5f7;
+        }
+
+        .file-item.active {
+            border-color: #1d1d1f;
+            background: #ffffff;
+        }
+
+        .file-item-name {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: #6e6e73;
+        }
+
+        .stat-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .stat-badge.error {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .stat-badge.warn {
+            background: #ff9500;
+            color: white;
+        }
+
+        .delete-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: #ff3b30;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Main content */
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .upload-section {
+            margin-bottom: 32px;
+        }
+
+        .upload-box {
+            border: 2px dashed #d2d2d7;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-box:hover {
+            border-color: #1d1d1f;
+            background: #fafafa;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 220px;
+            padding: 10px 16px;
             border: 1px solid #d2d2d7;
             border-radius: 8px;
             font-size: 14px;
-            background: #ffffff;
-            color: #1d1d1f;
         }
 
-        .advanced-search-toggle {
-            padding: 8px 18px;
-            border: 1px solid #d2d2d7;
-            background: #ffffff;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            color: #1d1d1f;
-            transition: all 0.2s;
-        }
-
-        .advanced-search-toggle:hover {
-            background: #f5f5f7;
-        }
-
-        .advanced-search-toggle.active {
-            background: #1d1d1f;
-            color: #ffffff;
-        }
-
-        /* Action Buttons */
-        .action-buttons {
-            padding: 16px 40px;
-            background: #ffffff;
-            border-bottom: 1px solid #e5e5e7;
-            display: none;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .action-buttons.visible {
+        .level-filters {
             display: flex;
+            gap: 8px;
         }
 
-        .action-btn {
+        .level-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0.3;
+        }
+
+        .level-btn.active {
+            opacity: 1;
+        }
+
+        .level-btn.TRACE { background: #d2d2d7; color: #1d1d1f; }
+        .level-btn.DEBUG { background: #86868b; color: white; }
+        .level-btn.INFO { background: #1d1d1f; color: white; }
+        .level-btn.WARN { background: #ff9500; color: white; }
+        .level-btn.ERROR { background: #ff3b30; color: white; }
+        .level-btn.FATAL { background: #d70015; color: white; }
+
+        .unread-toggle {
             padding: 8px 16px;
             border: 1px solid #d2d2d7;
-            background: #ffffff;
             border-radius: 8px;
+            background: white;
             cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            color: #1d1d1f;
+            font-size: 12px;
+            font-weight: 600;
             transition: all 0.2s;
         }
 
-        .action-btn:hover {
-            background: #f5f5f7;
-        }
-
-        .action-btn.danger {
-            background: #ff3b30;
-            color: #ffffff;
-            border-color: #ff3b30;
-        }
-
-        .action-btn.danger:hover {
-            background: #d70015;
-        }
-
-        .action-btn.primary {
+        .unread-toggle.active {
             background: #007aff;
-            color: #ffffff;
+            color: white;
             border-color: #007aff;
         }
 
-        .action-btn.primary:hover {
-            background: #0051d5;
-        }
-
-        /* Pagination */
-        .pagination {
-            padding: 24px 40px;
-            background: #fafafa;
-            border-top: 1px solid #e5e5e7;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .pagination.visible {
-            display: flex;
-        }
-
-        .pagination-btn {
-            padding: 10px 18px;
-            border: 1px solid #d2d2d7;
-            background: #ffffff;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #1d1d1f;
-            transition: all 0.2s;
-        }
-
-        .pagination-btn:hover:not(:disabled) {
-            background: #f5f5f7;
-        }
-
-        .pagination-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .pagination-btn.active {
-            background: #1d1d1f;
-            color: #ffffff;
-        }
-
-        .pagination-info {
-            font-size: 14px;
-            color: #6e6e73;
-            margin: 0 12px;
-        }
-
         .logs-container {
-            padding: 32px 40px;
             max-height: 700px;
             overflow-y: auto;
         }
 
-        .logs-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .logs-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .logs-container::-webkit-scrollbar-thumb {
-            background: #d2d2d7;
-            border-radius: 4px;
-        }
-
-        .logs-container::-webkit-scrollbar-thumb:hover {
-            background: #86868b;
-        }
-
         .log-entry {
-            background: #ffffff;
-            border: 1px solid #e5e5e7;
-            border-left: 4px solid #1d1d1f;
+            background: #fafafa;
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 16px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid;
+            transition: all 0.2s;
             position: relative;
         }
 
+        .log-entry.read {
+            opacity: 0.6;
+        }
+
         .log-entry:hover {
+            background: #ffffff;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
 
-        .log-entry.read {
-            opacity: 0.5;
-            background: #f5f5f7;
-        }
-
-        .log-entry.selected {
-            background: #e3f2fd;
-            border-color: #007aff;
-        }
-
-        /* Log Level Colors - According to instruction */
-        .log-entry.TRACE { 
-            border-left-color: #86868b;
-            background: #fafafa;
-        }
-        
-        .log-entry.DEBUG { 
-            border-left-color: #34c759;
-            background: linear-gradient(to right, rgba(52, 199, 89, 0.05), #ffffff);
-        }
-        
-        .log-entry.INFO { 
-            border-left-color: #007aff;
-            background: linear-gradient(to right, rgba(0, 122, 255, 0.05), #ffffff);
-        }
-        
-        .log-entry.WARN { 
-            border-left-color: #ff9500;
-            background: linear-gradient(to right, rgba(255, 149, 0, 0.05), #ffffff);
-            border-left-width: 5px;
-        }
-        
-        .log-entry.ERROR { 
-            border-left-color: #ff3b30;
-            background: linear-gradient(to right, rgba(255, 59, 48, 0.05), #ffffff);
-            border-left-width: 5px;
-        }
-        
-        .log-entry.FATAL { 
-            border-left-color: #d70015;
-            background: linear-gradient(to right, rgba(215, 0, 21, 0.08), #ffffff);
-            border-left-width: 6px;
-        }
-
-        /* Chain Indicator */
-        .chain-indicator {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 4px 12px;
-            background: #007aff;
-            color: #ffffff;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .chain-icon {
-            width: 12px;
-            height: 12px;
-            fill: currentColor;
-        }
-
-        /* Selection Checkbox */
-        .log-checkbox {
-            position: absolute;
-            top: 24px;
-            left: 20px;
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .log-entry.has-checkbox {
-            padding-left: 50px;
-        }
+        .log-entry.TRACE { border-left-color: #d2d2d7; }
+        .log-entry.DEBUG { border-left-color: #86868b; }
+        .log-entry.INFO { border-left-color: #1d1d1f; }
+        .log-entry.WARN { border-left-color: #ff9500; }
+        .log-entry.ERROR { border-left-color: #ff3b30; }
+        .log-entry.FATAL { border-left-color: #d70015; }
 
         .log-header {
             display: flex;
@@ -436,9 +304,7 @@
         .log-timestamp {
             color: #6e6e73;
             font-size: 12px;
-            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-            letter-spacing: -0.01em;
-            font-weight: 500;
+            font-family: 'SF Mono', monospace;
         }
 
         .log-level {
@@ -446,220 +312,131 @@
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.02em;
             text-transform: uppercase;
         }
 
-        /* Log Level Badge Colors - Neutral as requested */
-        .log-level.TRACE { background: #f5f5f7; color: #6e6e73; }
-        .log-level.DEBUG { background: #e5e5e7; color: #1d1d1f; }
-        .log-level.INFO { background: #d2d2d7; color: #1d1d1f; }
-        .log-level.WARN { background: #e5e5e7; color: #1d1d1f; }
-        .log-level.ERROR { background: #d2d2d7; color: #1d1d1f; }
-        .log-level.FATAL { background: #86868b; color: #ffffff; }
+        .log-level.TRACE { background: #d2d2d7; color: #1d1d1f; }
+        .log-level.DEBUG { background: #86868b; color: white; }
+        .log-level.INFO { background: #1d1d1f; color: white; }
+        .log-level.WARN { background: #ff9500; color: white; }
+        .log-level.ERROR { background: #ff3b30; color: white; }
+        .log-level.FATAL { background: #d70015; color: white; }
 
-        .log-module {
-            background: #f5f5f7;
+        .unread-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 8px;
+            height: 8px;
+            background: #007aff;
+            border-radius: 50%;
+        }
+
+        .mark-read-btn {
+            position: absolute;
+            top: 16px;
+            right: 40px;
+            background: none;
+            border: 1px solid #d2d2d7;
             padding: 4px 12px;
             border-radius: 6px;
             font-size: 11px;
-            font-weight: 600;
-            color: #1d1d1f;
-            letter-spacing: 0.01em;
-        }
-
-        .log-message {
-            color: #1d1d1f;
-            line-height: 1.7;
-            font-size: 15px;
-            word-break: break-word;
-            font-weight: 400;
-            letter-spacing: -0.01em;
-        }
-
-        .log-metadata {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #e5e5e7;
-        }
-
-        .metadata-toggle {
-            background: #f5f5f7;
-            border: 1px solid #e5e5e7;
-            padding: 6px 14px;
-            border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
-            color: #1d1d1f;
-            font-weight: 500;
-            margin-right: 8px;
-            margin-bottom: 8px;
             transition: all 0.2s;
-            letter-spacing: -0.01em;
-            display: inline-flex;
+        }
+
+        .mark-read-btn:hover {
+            background: #f5f5f7;
+        }
+
+        /* Gantt Chart */
+        .gantt-container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+        }
+
+        .gantt-timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
             align-items: center;
-            gap: 6px;
         }
 
-        .metadata-toggle:hover {
-            background: #e5e5e7;
-            border-color: #d2d2d7;
+        .gantt-label {
+            font-weight: 600;
+            font-size: 13px;
+            text-align: right;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-transform: uppercase;
         }
 
-        .metadata-toggle.has-link {
-            background: #007aff;
-            color: #ffffff;
-            border-color: #007aff;
-        }
+        .gantt-label.plan { background: #007aff; color: white; }
+        .gantt-label.apply { background: #34c759; color: white; }
+        .gantt-label.validation { background: #8e8e93; color: white; }
+        .gantt-label.destroy { background: #ff3b30; color: white; }
+        .gantt-label.init { background: #5856d6; color: white; }
 
-        .metadata-toggle.has-link:hover {
-            background: #0051d5;
-        }
-
-        .metadata-content {
-            display: none;
-            margin-top: 12px;
-            background: #fafafa;
-            padding: 16px;
+        .gantt-bar-container {
+            position: relative;
+            height: 40px;
+            background: #f5f5f7;
             border-radius: 8px;
-            border: 1px solid #e5e5e7;
-            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        }
+
+        .gantt-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
             font-size: 12px;
-            max-height: 350px;
-            overflow-y: auto;
+            font-weight: 600;
+            color: white;
         }
 
-        .metadata-content::-webkit-scrollbar {
-            width: 6px;
+        .gantt-bar:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .metadata-content::-webkit-scrollbar-thumb {
-            background: #d2d2d7;
-            border-radius: 3px;
+        .gantt-bar.plan { background: #007aff; }
+        .gantt-bar.apply { background: #34c759; }
+        .gantt-bar.validation { background: #8e8e93; }
+        .gantt-bar.destroy { background: #ff3b30; }
+        .gantt-bar.init { background: #5856d6; }
+
+        .gantt-details {
+            margin-top: 32px;
+            padding: 24px;
+            background: #fafafa;
+            border-radius: 12px;
+            display: none;
         }
 
-        .metadata-content.visible {
+        .gantt-details.visible {
             display: block;
         }
 
-        .json-viewer {
-            white-space: pre-wrap;
-            color: #1d1d1f;
-            line-height: 1.6;
-        }
-
-        .jump-link {
-            display: inline-block;
-            margin-top: 12px;
-            padding: 8px 16px;
-            background: #007aff;
-            color: white;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .jump-link:hover {
-            background: #0051d5;
-            transform: translateY(-2px);
-        }
-
-        .stats {
-            display: flex;
-            gap: 1px;
-            background: #e5e5e7;
-            border-top: 1px solid #e5e5e7;
-        }
-
-        .stat-item {
-            flex: 1;
-            background: #fafafa;
-            padding: 32px 24px;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .stat-item:hover {
-            background: #ffffff;
-        }
-
-        .stat-value {
-            font-size: 36px;
-            font-weight: 700;
-            color: #1d1d1f;
-            letter-spacing: -0.02em;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: #6e6e73;
-            font-weight: 500;
-            letter-spacing: -0.01em;
-        }
-
-        .stat-item.chains .stat-value { color: #007aff; }
-        .stat-item.error .stat-value { color: #ff3b30; }
-        .stat-item.warning .stat-value { color: #ff9500; }
-
         .empty-state {
             text-align: center;
-            padding: 100px 40px;
+            padding: 80px 40px;
             color: #86868b;
         }
 
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 24px;
-            opacity: 0.4;
-            stroke: currentColor;
-        }
-
-        .empty-state p:first-of-type {
-            font-size: 21px;
-            margin-bottom: 8px;
-            color: #1d1d1f;
-            font-weight: 600;
-        }
-
-        .empty-state p:last-of-type {
-            font-size: 15px;
-            color: #86868b;
-        }
-
-        .highlight-target {
-            animation: highlight 1s ease-out;
-        }
-
-        @keyframes highlight {
-            0% {
-                background: rgba(255, 235, 59, 0.4);
-                transform: scale(1.02);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 32px;
-            }
-            
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .level-filter {
-                flex-wrap: wrap;
-            }
-            
-            .stats {
-                flex-direction: column;
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -667,591 +444,412 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Terraform Log Analyzer</h1>
-            <p>Professional Log Analysis & Chain Tracking</p>
+            <h1>Terraform Log Viewer 2.0</h1>
+            <p>Advanced Log Analysis & Visualization</p>
         </div>
 
-        <div class="upload-section">
-            <div class="upload-box" id="uploadBox">
-                <input type="file" id="fileInput" accept=".log,.txt,.json" style="display: none;">
-                <p>Drop your log file here</p>
-                <p>or click to browse</p>
-            </div>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('logs')">📋 Logs</button>
+            <button class="tab" onclick="switchTab('gantt')">📊 Gantt Chart</button>
+            <button class="tab" onclick="switchTab('monitoring')">🔔 Monitoring</button>
         </div>
 
-        <div class="controls" id="controls" style="display: none;">
-            <input type="text" class="filter-input" id="searchInput" placeholder="Quick search">
-            <button class="advanced-search-toggle" id="advancedToggle">Advanced Search</button>
-            <div class="level-filter" id="levelFilter"></div>
-        </div>
-
-        <div class="advanced-search" id="advancedSearch">
-            <div class="advanced-search-grid">
-                <div class="search-field">
-                    <label for="resourceTypeFilter">Resource Type</label>
-                    <select id="resourceTypeFilter">
-                        <option value="">All Types</option>
-                    </select>
-                </div>
-                <div class="search-field">
-                    <label for="reqIdFilter">Request ID</label>
-                    <input type="text" id="reqIdFilter" placeholder="Filter by req_id">
-                </div>
-                <div class="search-field">
-                    <label for="timestampFrom">From Time</label>
-                    <input type="datetime-local" id="timestampFrom">
-                </div>
-                <div class="search-field">
-                    <label for="timestampTo">To Time</label>
-                    <input type="datetime-local" id="timestampTo">
-                </div>
-                <div class="search-field">
-                    <label for="regexSearch">Regex Pattern</label>
-                    <input type="text" id="regexSearch" placeholder="e.g. error|failed">
-                </div>
-                <div class="search-field">
-                    <label for="chainFilter">Show Chains Only</label>
-                    <select id="chainFilter">
-                        <option value="all">All Logs</option>
-                        <option value="chains">Only Chains</option>
-                        <option value="isolated">No Chains</option>
-                    </select>
+        <div class="layout">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h3>Log Files</h3>
+                <div class="file-list" id="fileList">
+                    <div class="empty-state" style="padding: 40px 20px;">
+                        <p style="font-size: 13px;">No files uploaded</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="action-buttons" id="actionButtons">
-            <button class="action-btn primary" id="selectAllBtn">Select All</button>
-            <button class="action-btn" id="deselectAllBtn">Deselect All</button>
-            <button class="action-btn" id="markReadBtn">Mark as Read</button>
-            <button class="action-btn danger" id="hideReadBtn">Hide Read</button>
-            <span style="margin-left: auto; font-size: 13px; color: #6e6e73;">
-                <span id="selectedCount">0</span> selected
-            </span>
-        </div>
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Logs Tab -->
+                <div class="tab-content active" id="logs-tab">
+                    <div class="upload-section">
+                        <div class="upload-box" id="uploadBox">
+                            <input type="file" id="fileInput" accept=".log,.txt,.json" style="display: none;">
+                            <p style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Drop log file here</p>
+                            <p style="font-size: 14px; color: #6e6e73;">or click to browse</p>
+                        </div>
+                    </div>
 
-        <div class="logs-container" id="logsContainer">
-            <div class="empty-state">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <p>No logs loaded</p>
-                <p>Upload a file to begin</p>
+                    <div class="controls" id="controls" style="display: none;">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search logs...">
+                        <button class="unread-toggle" id="unreadToggle" onclick="toggleUnreadFilter()">
+                            📖 Show Unread Only
+                        </button>
+                        <div class="level-filters" id="levelFilters"></div>
+                    </div>
+
+                    <div class="logs-container" id="logsContainer">
+                        <div class="empty-state">
+                            <p style="font-size: 18px; margin-bottom: 8px;">No logs loaded</p>
+                            <p style="font-size: 14px;">Upload a file to begin</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gantt Tab -->
+                <div class="tab-content" id="gantt-tab">
+                    <div class="gantt-container">
+                        <h3 style="margin-bottom: 24px;">Operation Timeline</h3>
+                        <div class="gantt-timeline" id="ganttTimeline">
+                            <div class="empty-state">
+                                <p>Select a log file to view timeline</p>
+                            </div>
+                        </div>
+                        <div class="gantt-details" id="ganttDetails"></div>
+                    </div>
+                </div>
+
+                <!-- Monitoring Tab -->
+                <div class="tab-content" id="monitoring-tab">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 32px;">
+                        <div style="background: #fafafa; padding: 24px; border-radius: 12px;">
+                            <div style="font-size: 32px; font-weight: 700; color: #1d1d1f;" id="metricTotalFiles">-</div>
+                            <div style="font-size: 13px; color: #6e6e73; margin-top: 4px;">Total Files</div>
+                        </div>
+                        <div style="background: #fafafa; padding: 24px; border-radius: 12px;">
+                            <div style="font-size: 32px; font-weight: 700; color: #ff3b30;" id="metricErrors">-</div>
+                            <div style="font-size: 13px; color: #6e6e73; margin-top: 4px;">Total Errors</div>
+                        </div>
+                        <div style="background: #fafafa; padding: 24px; border-radius: 12px;">
+                            <div style="font-size: 32px; font-weight: 700; color: #ff9500;" id="metricWarnings">-</div>
+                            <div style="font-size: 13px; color: #6e6e73; margin-top: 4px;">Total Warnings</div>
+                        </div>
+                        <div style="background: #fafafa; padding: 24px; border-radius: 12px;">
+                            <div style="font-size: 32px; font-weight: 700; color: #34c759;" id="metricHealth">-</div>
+                            <div style="font-size: 13px; color: #6e6e73; margin-top: 4px;">System Health</div>
+                        </div>
+                    </div>
+                    <canvas id="metricsChart" width="400" height="200"></canvas>
+                </div>
             </div>
         </div>
-
-        <div class="pagination" id="pagination">
-            <button class="pagination-btn" id="firstPage">First</button>
-            <button class="pagination-btn" id="prevPage">Previous</button>
-            <span class="pagination-info" id="paginationInfo"></span>
-            <button class="pagination-btn" id="nextPage">Next</button>
-            <button class="pagination-btn" id="lastPage">Last</button>
-        </div>
-
-        <div class="stats" id="stats" style="display: none;"></div>
     </div>
 
     <script>
         let allLogs = [];
         let filteredLogs = [];
-        let displayedLogs = [];
         let activeLevels = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']);
-        let requestResponseMap = new Map();
-        let readLogs = new Set();
-        let selectedLogs = new Set();
-        let hideRead = false;
-        
-        // Pagination
-        let currentPage = 1;
-        let logsPerPage = 50;
+        let showUnreadOnly = false;
+        let readLogs = new Set(JSON.parse(localStorage.getItem('readLogs') || '[]'));
+        let currentFileId = null;
 
+        const API_BASE = '';
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            if (tabName === 'gantt' && currentFileId) {
+                loadGanttData(currentFileId);
+            } else if (tabName === 'monitoring') {
+                loadMonitoringData();
+            }
+        }
+
+        // File upload
         const uploadBox = document.getElementById('uploadBox');
         const fileInput = document.getElementById('fileInput');
-        const logsContainer = document.getElementById('logsContainer');
-        const controls = document.getElementById('controls');
-        const stats = document.getElementById('stats');
-        const searchInput = document.getElementById('searchInput');
-        const levelFilter = document.getElementById('levelFilter');
-        const advancedToggle = document.getElementById('advancedToggle');
-        const advancedSearch = document.getElementById('advancedSearch');
-        const actionButtons = document.getElementById('actionButtons');
-        const pagination = document.getElementById('pagination');
-
-        // Advanced search elements
-        const resourceTypeFilter = document.getElementById('resourceTypeFilter');
-        const reqIdFilter = document.getElementById('reqIdFilter');
-        const timestampFrom = document.getElementById('timestampFrom');
-        const timestampTo = document.getElementById('timestampTo');
-        const regexSearch = document.getElementById('regexSearch');
-        const chainFilter = document.getElementById('chainFilter');
-
-        // Action buttons
-        const selectAllBtn = document.getElementById('selectAllBtn');
-        const deselectAllBtn = document.getElementById('deselectAllBtn');
-        const markReadBtn = document.getElementById('markReadBtn');
-        const hideReadBtn = document.getElementById('hideReadBtn');
-        const selectedCount = document.getElementById('selectedCount');
-
-        // Pagination buttons
-        const firstPage = document.getElementById('firstPage');
-        const prevPage = document.getElementById('prevPage');
-        const nextPage = document.getElementById('nextPage');
-        const lastPage = document.getElementById('lastPage');
-        const paginationInfo = document.getElementById('paginationInfo');
 
         uploadBox.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', handleFileSelect);
 
         uploadBox.addEventListener('dragover', (e) => {
             e.preventDefault();
-            uploadBox.classList.add('dragover');
+            uploadBox.style.borderColor = '#1d1d1f';
         });
 
         uploadBox.addEventListener('dragleave', () => {
-            uploadBox.classList.remove('dragover');
+            uploadBox.style.borderColor = '#d2d2d7';
         });
 
         uploadBox.addEventListener('drop', (e) => {
             e.preventDefault();
-            uploadBox.classList.remove('dragover');
+            uploadBox.style.borderColor = '#d2d2d7';
             const file = e.dataTransfer.files[0];
-            if (file) processFile(file);
+            if (file) uploadFile(file);
         });
-
-        advancedToggle.addEventListener('click', () => {
-            advancedSearch.classList.toggle('visible');
-            advancedToggle.classList.toggle('active');
-        });
-
-        // Action button events
-        selectAllBtn.addEventListener('click', () => {
-            displayedLogs.forEach(log => selectedLogs.add(log.originalIndex));
-            updateDisplay();
-        });
-
-        deselectAllBtn.addEventListener('click', () => {
-            selectedLogs.clear();
-            updateDisplay();
-        });
-
-        markReadBtn.addEventListener('click', () => {
-            selectedLogs.forEach(idx => readLogs.add(idx));
-            selectedLogs.clear();
-            updateDisplay();
-        });
-
-        hideReadBtn.addEventListener('click', () => {
-            hideRead = !hideRead;
-            hideReadBtn.textContent = hideRead ? 'Show Read' : 'Hide Read';
-            filterAndDisplay();
-        });
-
-        // Pagination events
-        firstPage.addEventListener('click', () => {
-            currentPage = 1;
-            displayPage();
-        });
-
-        prevPage.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                displayPage();
-            }
-        });
-
-        nextPage.addEventListener('click', () => {
-            const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
-            if (currentPage < totalPages) {
-                currentPage++;
-                displayPage();
-            }
-        });
-
-        lastPage.addEventListener('click', () => {
-            currentPage = Math.ceil(filteredLogs.length / logsPerPage);
-            displayPage();
-        });
-
-        // Search events
-        searchInput.addEventListener('input', filterAndDisplay);
-        resourceTypeFilter.addEventListener('change', filterAndDisplay);
-        reqIdFilter.addEventListener('input', filterAndDisplay);
-        timestampFrom.addEventListener('change', filterAndDisplay);
-        timestampTo.addEventListener('change', filterAndDisplay);
-        regexSearch.addEventListener('input', filterAndDisplay);
-        chainFilter.addEventListener('change', filterAndDisplay);
 
         function handleFileSelect(e) {
             const file = e.target.files[0];
-            if (file) processFile(file);
+            if (file) uploadFile(file);
         }
 
-        function processFile(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const content = e.target.result;
-                parseLogs(content);
-            };
-            reader.readAsText(file);
-        }
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
 
-        function parseLogs(content) {
-            const lines = content.split('\n');
-            allLogs = [];
-            requestResponseMap.clear();
-            readLogs.clear();
-            selectedLogs.clear();
-            
-            const resourceTypes = new Set();
-            
-            lines.forEach((line, lineIdx) => {
-                if (!line.trim()) return;
-                
-                try {
-                    const entry = JSON.parse(line);
-                    
-                    const logEntry = {
-                        timestamp: entry['@timestamp'] || new Date().toISOString(),
-                        level: (entry['@level'] || 'INFO').toUpperCase(),
-                        message: entry['@message'] || line,
-                        raw: entry,
-                        caller: entry['@caller'],
-                        module: entry['@module'],
-                        tfMetadata: extractTfMetadata(entry),
-                        httpRequest: entry['tf_http_req_body'] ? parseJSON(entry['tf_http_req_body']) : null,
-                        httpResponse: entry['tf_http_res_body'] ? parseJSON(entry['tf_http_res_body']) : null,
-                        reqId: entry['tf_req_id'],
-                        rpc: entry['tf_rpc'],
-                        resourceType: entry['tf_resource_type'],
-                        originalIndex: allLogs.length
-                    };
-                    
-                    if (logEntry.resourceType) {
-                        resourceTypes.add(logEntry.resourceType);
-                    }
-                    
-                    // Build request-response chains
-                    if (logEntry.reqId) {
-                        if (!requestResponseMap.has(logEntry.reqId)) {
-                            requestResponseMap.set(logEntry.reqId, {
-                                logs: [],
-                                hasRequest: false,
-                                hasResponse: false
-                            });
-                        }
-                        
-                        const chain = requestResponseMap.get(logEntry.reqId);
-                        chain.logs.push(logEntry.originalIndex);
-                        
-                        if (logEntry.httpRequest) chain.hasRequest = true;
-                        if (logEntry.httpResponse) chain.hasResponse = true;
-                    }
-                    
-                    allLogs.push(logEntry);
-                } catch (e) {
-                    allLogs.push({
-                        timestamp: new Date().toISOString(),
-                        level: 'INFO',
-                        message: line,
-                        raw: { text: line },
-                        originalIndex: allLogs.length
-                    });
-                }
-            });
-            
-            // Populate resource type dropdown
-            resourceTypeFilter.innerHTML = '<option value="">All Types</option>';
-            Array.from(resourceTypes).sort().forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                resourceTypeFilter.appendChild(option);
-            });
-            
-            createLevelFilters();
-            filterAndDisplay();
-            updateStats();
-            controls.style.display = 'flex';
-            actionButtons.classList.add('visible');
-            stats.style.display = 'flex';
-            pagination.classList.add('visible');
-        }
-
-        function extractTfMetadata(entry) {
-            const metadata = {};
-            const keys = ['tf_provider_addr', 'tf_resource_type', 'tf_data_source_type', 
-                         'tf_req_id', 'tf_rpc', 'tf_proto_version'];
-            
-            keys.forEach(key => {
-                if (entry[key]) metadata[key] = entry[key];
-            });
-            
-            return Object.keys(metadata).length > 0 ? metadata : null;
-        }
-
-        function parseJSON(str) {
             try {
-                return JSON.parse(str);
-            } catch {
-                return { raw: str };
+                const response = await fetch(`${API_BASE}/upload-log/?redact_sensitive=true&min_level=TRACE`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    await loadFileList();
+                    loadLogFile(data.file_id);
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Failed to upload file');
+            }
+        }
+
+        async function loadFileList() {
+            try {
+                const response = await fetch(`${API_BASE}/logs/`);
+                const files = await response.json();
+
+                const fileList = document.getElementById('fileList');
+                
+                if (files.length === 0) {
+                    fileList.innerHTML = '<div class="empty-state" style="padding: 40px 20px;"><p style="font-size: 13px;">No files uploaded</p></div>';
+                    return;
+                }
+
+                fileList.innerHTML = files.map(f => `
+                    <div class="file-item ${f.id === currentFileId ? 'active' : ''}" onclick="loadLogFile(${f.id})">
+                        <button class="delete-btn" onclick="deleteLogFile(${f.id}, event)">×</button>
+                        <div class="file-item-name">${f.filename}</div>
+                        <div class="file-item-stats">
+                            <span>${f.total_entries} logs</span>
+                            ${f.error_count > 0 ? `<span class="stat-badge error">${f.error_count} E</span>` : ''}
+                            ${f.warn_count > 0 ? `<span class="stat-badge warn">${f.warn_count} W</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading file list:', error);
+            }
+        }
+
+        async function loadLogFile(fileId) {
+            currentFileId = fileId;
+            
+            try {
+                const response = await fetch(`${API_BASE}/logs/${fileId}`);
+                const data = await response.json();
+
+                allLogs = data.entries.map((e, idx) => ({
+                    ...e,
+                    timestamp: e.timestamp,
+                    originalIndex: idx
+                }));
+
+                createLevelFilters();
+                filterAndDisplay();
+                document.getElementById('controls').style.display = 'flex';
+                
+                await loadFileList();
+            } catch (error) {
+                console.error('Error loading log file:', error);
+            }
+        }
+
+        async function deleteLogFile(fileId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('Delete this log file?')) return;
+
+            try {
+                await fetch(`${API_BASE}/logs/${fileId}`, { method: 'DELETE' });
+                
+                if (currentFileId === fileId) {
+                    currentFileId = null;
+                    allLogs = [];
+                    document.getElementById('logsContainer').innerHTML = '<div class="empty-state"><p>No logs loaded</p></div>';
+                    document.getElementById('controls').style.display = 'none';
+                }
+                
+                await loadFileList();
+            } catch (error) {
+                console.error('Error deleting file:', error);
             }
         }
 
         function createLevelFilters() {
             const levels = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
-            levelFilter.innerHTML = levels.map(level => 
-                `<button class="level-btn active" data-level="${level}">${level}</button>`
-            ).join('');
+            const container = document.getElementById('levelFilters');
             
-            levelFilter.querySelectorAll('.level-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const level = btn.dataset.level;
-                    btn.classList.toggle('active');
-                    
-                    if (activeLevels.has(level)) {
-                        activeLevels.delete(level);
-                    } else {
-                        activeLevels.add(level);
-                    }
-                    
-                    filterAndDisplay();
-                });
-            });
+            container.innerHTML = levels.map(level => 
+                `<button class="level-btn ${level} active" onclick="toggleLevel('${level}')">${level}</button>`
+            ).join('');
         }
 
-        function filterAndDisplay() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const resourceType = resourceTypeFilter.value;
-            const reqId = reqIdFilter.value;
-            const fromTime = timestampFrom.value ? new Date(timestampFrom.value) : null;
-            const toTime = timestampTo.value ? new Date(timestampTo.value) : null;
-            const regexPattern = regexSearch.value;
-            const chainMode = chainFilter.value;
+        function toggleLevel(level) {
+            const btn = event.target;
+            btn.classList.toggle('active');
             
-            let regex = null;
-            if (regexPattern) {
-                try {
-                    regex = new RegExp(regexPattern, 'i');
-                } catch (e) {
-                    console.error('Invalid regex:', e);
-                }
+            if (activeLevels.has(level)) {
+                activeLevels.delete(level);
+            } else {
+                activeLevels.add(level);
             }
             
-            filteredLogs = allLogs.filter(log => {
-                // Hide read logs
-                if (hideRead && readLogs.has(log.originalIndex)) {
-                    return false;
-                }
-                
-                // Level filter
-                if (!activeLevels.has(log.level)) {
-                    return false;
-                }
-                
-                // Quick search
-                if (searchTerm && !log.message.toLowerCase().includes(searchTerm)) {
-                    return false;
-                }
-                
-                // Resource type filter
-                if (resourceType && log.resourceType !== resourceType) {
-                    return false;
-                }
-                
-                // Request ID filter
-                if (reqId && log.reqId !== reqId) {
-                    return false;
-                }
-                
-                // Timestamp filter
-                const logTime = new Date(log.timestamp);
-                if (fromTime && logTime < fromTime) {
-                    return false;
-                }
-                if (toTime && logTime > toTime) {
-                    return false;
-                }
-                
-                // Regex filter
-                if (regex && !regex.test(log.message)) {
-                    return false;
-                }
-                
-                // Chain filter
-                if (chainMode !== 'all') {
-                    const hasChain = log.reqId && requestResponseMap.has(log.reqId);
-                    if (chainMode === 'chains' && !hasChain) {
-                        return false;
-                    }
-                    if (chainMode === 'isolated' && hasChain) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            });
-            
-            currentPage = 1;
-            displayPage();
+            filterAndDisplay();
         }
 
-        function displayPage() {
-            const startIdx = (currentPage - 1) * logsPerPage;
-            const endIdx = startIdx + logsPerPage;
-            displayedLogs = filteredLogs.slice(startIdx, endIdx);
+        function toggleUnreadFilter() {
+            showUnreadOnly = !showUnreadOnly;
+            const btn = document.getElementById('unreadToggle');
+            btn.classList.toggle('active');
+            btn.textContent = showUnreadOnly ? '📖 Showing Unread' : '📖 Show Unread Only';
+            filterAndDisplay();
+        }
+
+        document.getElementById('searchInput').addEventListener('input', filterAndDisplay);
+
+        function filterAndDisplay() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredLogs = allLogs.filter(log => {
+                const matchesLevel = activeLevels.has(log.level);
+                const matchesSearch = !searchTerm || log.message.toLowerCase().includes(searchTerm);
+                const matchesUnread = !showUnreadOnly || !readLogs.has(log.originalIndex);
+                
+                return matchesLevel && matchesSearch && matchesUnread;
+            });
             
             displayLogs();
-            updatePagination();
         }
 
         function displayLogs() {
-            if (displayedLogs.length === 0) {
-                logsContainer.innerHTML = '<div class="empty-state"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><p>No results</p><p>Try adjusting your filters</p></div>';
+            const container = document.getElementById('logsContainer');
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No results found</p></div>';
                 return;
             }
             
-            logsContainer.innerHTML = displayedLogs.map((log, idx) => {
-                const hasMetadata = log.tfMetadata || log.httpRequest || log.httpResponse || log.caller;
+            container.innerHTML = filteredLogs.slice(0, 200).map(log => {
                 const isRead = readLogs.has(log.originalIndex);
-                const isSelected = selectedLogs.has(log.originalIndex);
-                const chainInfo = log.reqId ? requestResponseMap.get(log.reqId) : null;
-                const hasChain = chainInfo && chainInfo.logs.length > 1;
                 
                 return `
-                    <div class="log-entry ${log.level} ${isRead ? 'read' : ''} ${isSelected ? 'selected' : ''} has-checkbox" 
-                         id="log-${log.originalIndex}" 
-                         data-idx="${log.originalIndex}">
-                        <input type="checkbox" class="log-checkbox" 
-                               ${isSelected ? 'checked' : ''} 
-                               onchange="toggleSelection(${log.originalIndex})">
-                        
-                        ${hasChain ? `
-                            <div class="chain-indicator" onclick="showChain('${log.reqId}')">
-                                <svg class="chain-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
-                                </svg>
-                                ${chainInfo.logs.length} logs
-                            </div>
-                        ` : ''}
-                        
+                    <div class="log-entry ${log.level} ${isRead ? 'read' : ''}" id="log-${log.originalIndex}">
+                        ${!isRead ? '<div class="unread-badge"></div>' : ''}
+                        <button class="mark-read-btn" onclick="markAsRead(${log.originalIndex})">
+                            ${isRead ? '↻ Unread' : '✓ Read'}
+                        </button>
                         <div class="log-header">
                             <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
                             <span class="log-level ${log.level}">${log.level}</span>
-                            ${log.module ? `<span class="log-module">${log.module}</span>` : ''}
-                            ${log.resourceType ? `<span class="log-module">${log.resourceType}</span>` : ''}
+                            ${log.section_type ? `<span style="padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #007aff; color: white;">${log.section_type}</span>` : ''}
                         </div>
-                        <div class="log-message">${escapeHtml(log.message)}</div>
-                        ${hasMetadata ? `
-                            <div class="log-metadata">
-                                ${log.tfMetadata ? `<button class="metadata-toggle" onclick="toggleMetadata('tf-${log.originalIndex}')">Terraform Metadata</button>` : ''}
-                                ${log.httpRequest ? `<button class="metadata-toggle" onclick="toggleMetadata('req-${log.originalIndex}')">Request Body</button>` : ''}
-                                ${log.httpResponse ? `<button class="metadata-toggle" onclick="toggleMetadata('res-${log.originalIndex}')">Response Body</button>` : ''}
-                                ${log.caller ? `<button class="metadata-toggle" onclick="toggleMetadata('call-${log.originalIndex}')">Caller Info</button>` : ''}
-                                
-                                ${log.tfMetadata ? `<div id="tf-${log.originalIndex}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.tfMetadata, null, 2)}</pre></div>` : ''}
-                                ${log.httpRequest ? `<div id="req-${log.originalIndex}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.httpRequest, null, 2)}</pre></div>` : ''}
-                                ${log.httpResponse ? `<div id="res-${log.originalIndex}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.httpResponse, null, 2)}</pre></div>` : ''}
-                                ${log.caller ? `<div id="call-${log.originalIndex}" class="metadata-content"><pre class="json-viewer">${log.caller}</pre></div>` : ''}
-                            </div>
-                        ` : ''}
+                        <div style="line-height: 1.6;">${escapeHtml(log.message)}</div>
                     </div>
                 `;
             }).join('');
-            
-            updateSelectedCount();
         }
 
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
-            const startIdx = (currentPage - 1) * logsPerPage + 1;
-            const endIdx = Math.min(startIdx + logsPerPage - 1, filteredLogs.length);
-            
-            paginationInfo.textContent = `${startIdx}-${endIdx} of ${filteredLogs.length}`;
-            
-            firstPage.disabled = currentPage === 1;
-            prevPage.disabled = currentPage === 1;
-            nextPage.disabled = currentPage === totalPages;
-            lastPage.disabled = currentPage === totalPages;
-        }
-
-        function toggleSelection(idx) {
-            if (selectedLogs.has(idx)) {
-                selectedLogs.delete(idx);
+        function markAsRead(idx) {
+            if (readLogs.has(idx)) {
+                readLogs.delete(idx);
             } else {
-                selectedLogs.add(idx);
+                readLogs.add(idx);
             }
-            updateDisplay();
-        }
-
-        function updateDisplay() {
-            displayLogs();
-        }
-
-        function updateSelectedCount() {
-            selectedCount.textContent = selectedLogs.size;
-        }
-
-        function showChain(reqId) {
-            const chain = requestResponseMap.get(reqId);
-            if (!chain) return;
             
-            // Highlight all logs in chain
-            chain.logs.forEach(idx => {
-                const element = document.getElementById(`log-${idx}`);
-                if (element) {
-                    element.classList.add('highlight-target');
-                    setTimeout(() => element.classList.remove('highlight-target'), 1000);
-                }
-            });
-            
-            // Scroll to first log
-            const firstLog = document.getElementById(`log-${chain.logs[0]}`);
-            if (firstLog) {
-                firstLog.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            localStorage.setItem('readLogs', JSON.stringify([...readLogs]));
+            filterAndDisplay();
+        }
+
+        async function loadGanttData(fileId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
+                const data = await response.json();
+
+                displayGanttChart(data.gantt_data);
+            } catch (error) {
+                console.error('Error loading Gantt data:', error);
             }
         }
 
-        function toggleMetadata(id) {
-            const element = document.getElementById(id);
-            element.classList.toggle('visible');
+        function displayGanttChart(ganttData) {
+            const container = document.getElementById('ganttTimeline');
+            
+            if (ganttData.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No operations found</p></div>';
+                return;
+            }
+
+            const minStart = Math.min(...ganttData.map(d => new Date(d.start).getTime()));
+            const maxEnd = Math.max(...ganttData.map(d => new Date(d.end).getTime()));
+            const totalDuration = maxEnd - minStart;
+
+            container.innerHTML = ganttData.map(task => {
+                const start = new Date(task.start).getTime();
+                const end = new Date(task.end).getTime();
+                const duration = end - start;
+                
+                const leftPercent = ((start - minStart) / totalDuration) * 100;
+                const widthPercent = (duration / totalDuration) * 100;
+
+                return `
+                    <div class="gantt-row">
+                        <div class="gantt-label ${task.task}">${task.task}</div>
+                        <div class="gantt-bar-container">
+                            <div class="gantt-bar ${task.task}" 
+                                 style="left: ${leftPercent}%; width: ${widthPercent}%;"
+                                 onclick="showGanttDetails('${task.task}', ${task.duration}, ${task.log_count})">
+                                ${task.duration.toFixed(1)}s
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        function updateStats() {
-            const levelCounts = {};
-            
-            allLogs.forEach(log => {
-                levelCounts[log.level] = (levelCounts[log.level] || 0) + 1;
-            });
-            
-            const chains = requestResponseMap.size;
-            const readCount = readLogs.size;
-            
-            stats.innerHTML = `
-                <div class="stat-item">
-                    <div class="stat-value">${allLogs.length}</div>
-                    <div class="stat-label">Total Logs</div>
-                </div>
-                <div class="stat-item chains">
-                    <div class="stat-value">${chains}</div>
-                    <div class="stat-label">Request Chains</div>
-                </div>
-                <div class="stat-item error">
-                    <div class="stat-value">${levelCounts.ERROR || 0}</div>
-                    <div class="stat-label">Errors</div>
-                </div>
-                <div class="stat-item warning">
-                    <div class="stat-value">${levelCounts.WARN || 0}</div>
-                    <div class="stat-label">Warnings</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">${readCount}</div>
-                    <div class="stat-label">Marked Read</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">${filteredLogs.length}</div>
-                    <div class="stat-label">Filtered</div>
-                </div>
+        function showGanttDetails(task, duration, logCount) {
+            const details = document.getElementById('ganttDetails');
+            details.innerHTML = `
+                <h4 style="margin-bottom: 12px; font-size: 16px;">Operation: ${task}</h4>
+                <p style="margin-bottom: 8px;"><strong>Duration:</strong> ${duration.toFixed(2)} seconds</p>
+                <p><strong>Log entries:</strong> ${logCount}</p>
             `;
+            details.classList.add('visible');
+        }
+
+        async function loadMonitoringData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/metrics`);
+                const metrics = await response.json();
+
+                document.getElementById('metricTotalFiles').textContent = metrics.total_files;
+                document.getElementById('metricErrors').textContent = metrics.total_errors;
+                document.getElementById('metricWarnings').textContent = metrics.total_warnings;
+                document.getElementById('metricHealth').textContent = metrics.error_rate.toFixed(1) + '%';
+
+                // Draw chart
+                const ctx = document.getElementById('metricsChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(metrics.files_by_date),
+                        datasets: [{
+                            label: 'Files Uploaded',
+                            data: Object.values(metrics.files_by_date),
+                            backgroundColor: '#007aff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading monitoring data:', error);
+            }
         }
 
         function formatTimestamp(ts) {
@@ -1267,6 +865,9 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // Load file list on startup
+        loadFileList();
     </script>
 </body>
 </html>

@@ -1,11 +1,39 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: terraform-postgres
+    environment:
+      POSTGRES_USER: terraform
+      POSTGRES_PASSWORD: terraform
+      POSTGRES_DB: terraform_logs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terraform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   logviewer:
     build: .
     container_name: terraform-logviewer
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app/src
+      - ./terraform_parser.py:/app/terraform_parser.py
+      - ./terraform_log_viewer.html:/app/terraform_log_viewer.html
+    environment:
+      - DATABASE_URL=postgresql://terraform:terraform@postgres:5432/terraform_logs
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local

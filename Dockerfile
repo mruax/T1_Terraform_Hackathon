@@ -3,18 +3,41 @@ LABEL authors="mruax"
 
 # Устанавливаем зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl && \
-    rm -rf /var/lib/apt/lists/*
+    build-essential \
+    curl \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Создаем директорию для приложения
 WORKDIR /app
 
-# Устанавливаем Python-зависимости
+# Копируем requirements и устанавливаем зависимости
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходники
-COPY . .
+COPY terraform_parser.py .
+COPY terraform_viewer.html terraform_viewer.html
 
-# Запуск через Uvicorn
-CMD ["uvicorn", "newparse:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Скрипт ожидания готовности БД
+COPY <<'EOF' /app/wait-for-db.sh
+#!/bin/bash
+set -e
+
+host="$1"
+shift
+cmd="$@"
+
+until pg_isready -h "$host" -U terraform; do
+  >&2 echo "Postgres is unavailable - sleeping"
+  sleep 1
+done
+
+>&2 echo "Postgres is up - executing command"
+exec $cmd
+EOF
+
+RUN chmod +x /app/wait-for-db.sh
+
+# Запуск через Uvicorn с ожиданием БД
+CMD ["./wait-for-db.sh", "postgres", "uvicorn", "terraform_parser:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
