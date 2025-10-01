@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terraform Log Viewer 2.2</title>
+    <title>Terraform Log Viewer 2.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -298,12 +298,12 @@
             color: #6e6e73;
         }
 
-        .per-page-selector select {
-            border: none;
-            background: none;
+        .per-page-selector input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #d2d2d7;
+            border-radius: 4px;
             font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
         }
 
         .level-filters {
@@ -327,8 +327,8 @@
         }
 
         .level-btn.TRACE { background: #d2d2d7; color: #1d1d1f; }
-        .level-btn.DEBUG { background: #86868b; color: white; }
-        .level-btn.INFO { background: #1d1d1f; color: white; }
+        .level-btn.DEBUG { background: #34c759; color: white; }
+        .level-btn.INFO { background: #007aff; color: white; }
         .level-btn.WARN { background: #ff9500; color: white; }
         .level-btn.ERROR { background: #ff3b30; color: white; }
         .level-btn.FATAL { background: #d70015; color: white; }
@@ -394,8 +394,38 @@
             overflow-y: auto;
         }
 
-        .log-entry {
+        /* Section grouping */
+        .section-group {
+            margin-bottom: 32px;
+            border: 2px solid #e5e5e7;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            font-weight: 700;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-stats {
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .section-content {
+            padding: 16px;
             background: #fafafa;
+        }
+
+        .log-entry {
+            background: white;
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 16px;
@@ -409,16 +439,31 @@
         }
 
         .log-entry:hover {
-            background: #ffffff;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
 
         .log-entry.TRACE { border-left-color: #d2d2d7; }
-        .log-entry.DEBUG { border-left-color: #86868b; }
-        .log-entry.INFO { border-left-color: #1d1d1f; }
+        .log-entry.DEBUG { border-left-color: #34c759; }
+        .log-entry.INFO { border-left-color: #007aff; }
         .log-entry.WARN { border-left-color: #ff9500; }
         .log-entry.ERROR { border-left-color: #ff3b30; }
         .log-entry.FATAL { border-left-color: #d70015; }
+
+        .log-entry.has-chain {
+            border-right: 4px solid #5856d6;
+        }
+
+        .chain-indicator {
+            position: absolute;
+            top: 20px;
+            right: 50px;
+            background: #5856d6;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
 
         .log-header {
             display: flex;
@@ -443,8 +488,8 @@
         }
 
         .log-level.TRACE { background: #d2d2d7; color: #1d1d1f; }
-        .log-level.DEBUG { background: #86868b; color: white; }
-        .log-level.INFO { background: #1d1d1f; color: white; }
+        .log-level.DEBUG { background: #34c759; color: white; }
+        .log-level.INFO { background: #007aff; color: white; }
         .log-level.WARN { background: #ff9500; color: white; }
         .log-level.ERROR { background: #ff3b30; color: white; }
         .log-level.FATAL { background: #d70015; color: white; }
@@ -476,7 +521,7 @@
             background: #f5f5f7;
         }
 
-        /* Gantt Chart - Enhanced with zoom and sub-operations */
+        /* Gantt Chart */
         .gantt-container {
             background: white;
             padding: 24px;
@@ -550,9 +595,16 @@
             gap: 0;
             border: 1px solid #e5e5e7;
             border-radius: 8px;
-            overflow: auto;
             background: white;
             max-height: 600px;
+        }
+
+        .gantt-workspace.no-scroll {
+            overflow: hidden;
+        }
+
+        .gantt-workspace:not(.no-scroll) {
+            overflow: auto;
         }
 
         .gantt-tasks-column {
@@ -593,6 +645,7 @@
             font-size: 12px;
             font-weight: 500;
             background: #fafafa;
+            min-height: 36px;
         }
 
         .gantt-task-label {
@@ -655,6 +708,10 @@
             display: flex;
         }
 
+        .gantt-timeline-row.sub-row {
+            min-height: 36px;
+        }
+
         .gantt-timeline-grid {
             position: absolute;
             top: 0;
@@ -701,7 +758,8 @@
         .gantt-bar.init { background: #5856d6; }
         .gantt-bar.sub { 
             opacity: 0.7;
-            height: 24px;
+            height: 20px;
+            top: 8px;
         }
 
         .gantt-tooltip {
@@ -772,7 +830,7 @@
     <div class="container">
         <div class="header">
             <a href="/docs" class="api-docs-btn" target="_blank">📚 API Docs</a>
-            <h1>Terraform Log Viewer 2.2</h1>
+            <h1>Terraform Log Viewer 2.3</h1>
             <p>Advanced Log Analysis & Visualization</p>
         </div>
 
@@ -809,12 +867,7 @@
                         <input type="text" class="search-input" id="searchInput" placeholder="Quick search...">
                         <div class="per-page-selector">
                             <label>Show:</label>
-                            <select id="perPageSelect" onchange="changePerPage()">
-                                <option value="25">25</option>
-                                <option value="50" selected>50</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                            </select>
+                            <input type="number" id="perPageInput" value="50" min="10" max="500" step="10" onchange="changePerPage()">
                         </div>
                         <button class="action-btn" onclick="toggleAdvancedSearch()">🔍 Advanced Search</button>
                         <button class="action-btn" id="hideReadToggle" onclick="toggleHideRead()">👁️ Hide Read</button>
@@ -944,6 +997,7 @@
         let ganttData = null;
         let expandedTasks = new Set();
         let metricsChart = null;
+        let requestChains = {};
 
         const API_BASE = '';
 
@@ -1002,6 +1056,11 @@
 
                 const data = await response.json();
                 
+                if (response.status === 409) {
+                    alert('This file has already been uploaded!');
+                    return;
+                }
+                
                 if (data.status === 'success') {
                     await loadFileList();
                     loadLogFile(data.file_id);
@@ -1042,7 +1101,6 @@
 
         function selectLogFile(fileId) {
             loadLogFile(fileId);
-            // Fix: If on Gantt tab, reload Gantt data immediately
             if (document.querySelector('.tab.active').textContent.includes('Gantt')) {
                 loadGanttData(fileId);
             }
@@ -1061,6 +1119,8 @@
                     timestamp: e.timestamp,
                     originalIndex: idx
                 }));
+
+                requestChains = data.request_chains || {};
 
                 createLevelFilters();
                 filterAndDisplay();
@@ -1148,7 +1208,9 @@
         }
 
         function changePerPage() {
-            logsPerPage = parseInt(document.getElementById('perPageSelect').value);
+            logsPerPage = parseInt(document.getElementById('perPageInput').value) || 50;
+            logsPerPage = Math.max(10, Math.min(500, logsPerPage));
+            document.getElementById('perPageInput').value = logsPerPage;
             currentPage = 1;
             filterAndDisplay();
         }
@@ -1213,25 +1275,64 @@
             const endIdx = startIdx + logsPerPage;
             const pageLog = filteredLogs.slice(startIdx, endIdx);
             
-            container.innerHTML = pageLog.map(log => {
-                const isRead = readLogs.has(log.originalIndex);
+            // Group by sections
+            const sections = {};
+            pageLog.forEach(log => {
+                const section = log.section_type || 'general';
+                if (!sections[section]) {
+                    sections[section] = [];
+                }
+                sections[section].push(log);
+            });
+            
+            let html = '';
+            
+            Object.keys(sections).forEach(sectionName => {
+                const logs = sections[sectionName];
+                const errorCount = logs.filter(l => l.level === 'ERROR').length;
+                const warnCount = logs.filter(l => l.level === 'WARN').length;
                 
-                return `
-                    <div class="log-entry ${log.level} ${isRead ? 'read' : ''}" id="log-${log.originalIndex}">
-                        ${!isRead ? '<div class="unread-badge"></div>' : ''}
-                        <button class="mark-read-btn" onclick="markAsRead(${log.originalIndex})">
-                            ${isRead ? '↻ Unread' : '✓ Read'}
-                        </button>
-                        <div class="log-header">
-                            <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
-                            <span class="log-level ${log.level}">${log.level}</span>
-                            ${log.section_type ? `<span style="padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #007aff; color: white;">${log.section_type}</span>` : ''}
+                html += `
+                    <div class="section-group">
+                        <div class="section-header">
+                            <span>${sectionName.toUpperCase()}</span>
+                            <span class="section-stats">
+                                ${logs.length} logs
+                                ${errorCount > 0 ? ` · ${errorCount} errors` : ''}
+                                ${warnCount > 0 ? ` · ${warnCount} warnings` : ''}
+                            </span>
                         </div>
-                        <div style="line-height: 1.6;">${escapeHtml(log.message)}</div>
+                        <div class="section-content">
+                `;
+                
+                logs.forEach(log => {
+                    const isRead = readLogs.has(log.originalIndex);
+                    const hasChain = log.req_id && requestChains[log.req_id];
+                    const chainLength = hasChain ? requestChains[log.req_id].length : 0;
+                    
+                    html += `
+                        <div class="log-entry ${log.level} ${isRead ? 'read' : ''} ${hasChain ? 'has-chain' : ''}" id="log-${log.originalIndex}">
+                            ${!isRead ? '<div class="unread-badge"></div>' : ''}
+                            ${hasChain ? `<div class="chain-indicator">🔗 ${chainLength}</div>` : ''}
+                            <button class="mark-read-btn" onclick="markAsRead(${log.originalIndex})">
+                                ${isRead ? '↻ Unread' : '✓ Read'}
+                            </button>
+                            <div class="log-header">
+                                <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+                                <span class="log-level ${log.level}">${log.level}</span>
+                            </div>
+                            <div style="line-height: 1.6;">${escapeHtml(log.message)}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
                     </div>
                 `;
-            }).join('');
+            });
             
+            container.innerHTML = html;
             updatePagination();
         }
 
@@ -1259,7 +1360,7 @@
             filterAndDisplay();
         }
 
-        // Gantt Chart with enhanced zoom and sub-operations
+        // Gantt Chart
         async function loadGanttData(fileId) {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
@@ -1299,7 +1400,6 @@
             const maxEnd = Math.max(...ganttData.map(d => new Date(d.end).getTime()));
             const totalDuration = maxEnd - minStart;
             
-            // Adaptive time blocks based on zoom
             const blockWidth = 80 * ganttZoom;
             const numBlocks = Math.max(10, Math.ceil(totalDuration / (1000 * Math.pow(10, -ganttZoom + 5))));
             
@@ -1325,7 +1425,6 @@
                 const hasSubOps = task.sub_operations && task.sub_operations.length > 0;
                 const isExpanded = expandedTasks.has(task.task);
                 
-                // Main task row
                 tasksHTML += `
                     <div class="gantt-task-row">
                         <div class="gantt-task-label">
@@ -1336,13 +1435,12 @@
                     </div>
                 `;
 
-                // Main task timeline
                 const start = new Date(task.start).getTime();
                 const end = new Date(task.end).getTime();
                 const duration = end - start;
                 
                 const leftPercent = ((start - minStart) / totalDuration) * 100;
-                const widthPercent = (duration / totalDuration) * 100;
+                const widthPercent = Math.max(0.5, (duration / totalDuration) * 100);
 
                 timelinesHTML += `
                     <div class="gantt-timeline-row">
@@ -1358,7 +1456,6 @@
                     </div>
                 `;
 
-                // Sub-operations if expanded
                 if (isExpanded && hasSubOps) {
                     task.sub_operations.forEach(subOp => {
                         tasksHTML += `
@@ -1378,7 +1475,7 @@
                         const subWidthPercent = Math.max(0.5, (subDuration / totalDuration) * 100);
 
                         timelinesHTML += `
-                            <div class="gantt-timeline-row">
+                            <div class="gantt-timeline-row sub-row">
                                 <div class="gantt-timeline-grid">
                                     ${timeBlocks.map(() => `<div class="gantt-grid-line" style="min-width: ${blockWidth}px;"></div>`).join('')}
                                 </div>
@@ -1408,6 +1505,13 @@
                     </div>
                 </div>
             `;
+
+            // Remove scroll at zoom 1.0
+            if (ganttZoom === 1.0) {
+                workspace.classList.add('no-scroll');
+            } else {
+                workspace.classList.remove('no-scroll');
+            }
         }
 
         function showGanttTooltip(event, task, duration, logCount) {
@@ -1437,12 +1541,10 @@
                 document.getElementById('metricWarnings').textContent = metrics.total_warnings;
                 document.getElementById('metricHealth').textContent = metrics.error_rate.toFixed(1) + '%';
 
-                // Destroy previous chart
                 if (metricsChart) {
                     metricsChart.destroy();
                 }
 
-                // Create new chart
                 const ctx = document.getElementById('metricsChart').getContext('2d');
                 metricsChart = new Chart(ctx, {
                     type: 'bar',
@@ -1492,7 +1594,6 @@
             return div.innerHTML;
         }
 
-        // Load file list on startup
         loadFileList();
     </script>
 </body>

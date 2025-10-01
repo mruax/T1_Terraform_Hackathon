@@ -2,6 +2,7 @@ import re
 import json
 import logging
 import traceback
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, asdict
@@ -598,6 +599,7 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS log_files (
                     id SERIAL PRIMARY KEY,
                     filename VARCHAR(255) NOT NULL,
+                    file_hash VARCHAR(64) UNIQUE NOT NULL,
                     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     total_entries INTEGER,
                     error_count INTEGER,
@@ -627,7 +629,16 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_log_entries_level ON log_entries(level)
             ''')
     
-    async def save_log_file(self, filename: str, entries: List[LogEntry]) -> int:
+    async def file_exists(self, file_hash: str) -> Optional[int]:
+        """Check if file with this hash already exists"""
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchval(
+                'SELECT id FROM log_files WHERE file_hash = $1',
+                file_hash
+            )
+            return result
+    
+    async def save_log_file(self, filename: str, file_hash: str, entries: List[LogEntry]) -> int:
         error_count = sum(1 for e in entries if e.level == LogLevel.ERROR)
         warn_count = sum(1 for e in entries if e.level == LogLevel.WARN)
         
@@ -636,10 +647,10 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             try:
                 file_id = await conn.fetchval('''
-                    INSERT INTO log_files (filename, total_entries, error_count, warn_count)
-                    VALUES ($1, $2, $3, $4)
+                    INSERT INTO log_files (filename, file_hash, total_entries, error_count, warn_count)
+                    VALUES ($1, $2, $3, $4, $5)
                     RETURNING id
-                ''', filename, len(entries), error_count, warn_count)
+                ''', filename, file_hash, len(entries), error_count, warn_count)
                 
                 logger.info(f"Created log_files record with id: {file_id}")
                 
@@ -729,7 +740,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Terraform Log Processor API",
     description="Advanced Terraform log analysis with JSON-configured plugins",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan
 )
 
@@ -779,29 +790,36 @@ async def get_available_configs():
 @app.post("/upload-log/", tags=["Logs"])
 async def upload_log(
     file: UploadFile = File(...),
-    config: str = Query("default", description="Plugin configuration profile (only parameter, all settings via JSON)")
+    config: str = Query("default", description="Plugin configuration profile")
 ):
-    """
-    Upload and parse Terraform log file
-    
-    All plugin settings are configured via plugin_config.json
-    Use 'config' parameter to select profile: default, production, or debug
-    """
+    """Upload and parse Terraform log file"""
     logger.info(f"Received file upload: {file.filename} with config profile: {config}")
     
     if not file.filename.endswith(('.log', '.txt', '.json')):
         raise HTTPException(status_code=400, detail="Invalid file type")
     
     try:
+        # Read file content
+        content = await file.read()
+        logger.info(f"Read {len(content)} bytes from file")
+        
+        # Calculate file hash
+        file_hash = hashlib.sha256(content).hexdigest()
+        
+        # Check if file already exists
+        existing_id = await db_manager.file_exists(file_hash)
+        if existing_id:
+            logger.warning(f"File already exists with id: {existing_id}")
+            raise HTTPException(
+                status_code=409, 
+                detail=f"This file has already been uploaded (File ID: {existing_id})"
+            )
+        
         # Load plugins from configuration
         plugins = config_loader.create_plugins_from_config(config)
         
         parser = TerraformLogParser(plugins=plugins)
         logger.info(f"Parser initialized with {len(plugins)} plugins from '{config}' profile")
-        
-        # Read file content
-        content = await file.read()
-        logger.info(f"Read {len(content)} bytes from file")
         
         lines = content.decode('utf-8').splitlines()
         logger.info(f"Split into {len(lines)} lines")
@@ -827,22 +845,24 @@ async def upload_log(
         # Save to database
         logger.info("Attempting to save to database")
         try:
-            file_id = await db_manager.save_log_file(file.filename, entries)
+            file_id = await db_manager.save_log_file(file.filename, file_hash, entries)
             logger.info(f"Saved to database with file_id: {file_id}")
         except Exception as db_error:
             logger.error(f"Database save error: {str(db_error)}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
         
+        # Build request-response pairs
         req_resp_map = {}
         for i, entry in enumerate(entries):
             if entry.req_id:
                 if entry.req_id not in req_resp_map:
-                    req_resp_map[entry.req_id] = {}
+                    req_resp_map[entry.req_id] = {'indices': []}
+                req_resp_map[entry.req_id]['indices'].append(i)
                 if entry.http_request:
-                    req_resp_map[entry.req_id]['request'] = i
+                    req_resp_map[entry.req_id]['has_request'] = True
                 if entry.http_response:
-                    req_resp_map[entry.req_id]['response'] = i
+                    req_resp_map[entry.req_id]['has_response'] = True
         
         response_entries = []
         for entry in entries[:100]:
@@ -867,7 +887,7 @@ async def upload_log(
             "total_entries": len(entries),
             "entries": response_entries,
             "sections_detected": list(set(e.section_type for e in entries if e.section_type)),
-            "linked_pairs": len(req_resp_map),
+            "request_response_chains": len(req_resp_map),
             "plugins_applied": [type(p).__name__ for p in plugins],
             "config_profile": config,
             "parse_errors": parse_errors
@@ -903,10 +923,20 @@ async def get_log_file(file_id: int):
     if not entries:
         raise HTTPException(status_code=404, detail="Log file not found")
     
+    # Build request-response chains
+    req_chains = {}
+    for i, entry in enumerate(entries):
+        req_id = entry.get('req_id')
+        if req_id:
+            if req_id not in req_chains:
+                req_chains[req_id] = []
+            req_chains[req_id].append(i)
+    
     return {
         "file_id": file_id,
         "total_entries": len(entries),
-        "entries": entries
+        "entries": entries,
+        "request_chains": req_chains
     }
 
 @app.delete("/logs/{file_id}", tags=["Logs"])
@@ -1039,7 +1069,7 @@ async def get_gantt_data(file_id: int):
             # Create sub-operations
             sub_operations = []
             for req_id, ops in operations_by_req.items():
-                if len(ops) > 1:
+                if len(ops) > 1 and req_id != 'general':
                     op_start = datetime.fromisoformat(ops[0]['timestamp'])
                     op_end = datetime.fromisoformat(ops[-1]['timestamp'])
                     op_duration = (op_end - op_start).total_seconds()
