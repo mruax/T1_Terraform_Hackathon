@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  logviewer:
+    build: .
+    container_name: terraform-logviewer
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
