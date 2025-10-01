@@ -26,7 +26,7 @@
         }
 
         .header {
-            padding: 40px 0;
+            padding: 15px 0;
             text-align: center;
             position: relative;
         }
@@ -1004,7 +1004,9 @@
             position: relative;
             background: white;
             min-width: fit-content;
+            width: max-content;
         }
+
 
         .gantt-timeline-header {
             display: flex;
@@ -1467,6 +1469,9 @@
         let sectionNumbers = {};
         let sidebarCollapsed = false;
         let currentTab = 'logs';
+        let ganttScrollPos = { left: 0, top: 0 };
+        let ganttScrollContainer = null;
+
 
         const API_BASE = '';
 
@@ -1651,10 +1656,11 @@
                 fileList.innerHTML = files.map((f, index) => `
                     <div class="file-item ${f.id === currentFileId ? 'active' : ''}" onclick="selectLogFile(${f.id})">
                         <button class="delete-btn" onclick="deleteLogFile(${f.id}, event)">×</button>
-                        <div class="file-item-name" title="${f.filename}">
-                            <span class="file-number">#${index + 1}</span>
+                        <div class="file-item-name" title="${f.filename} (ID: ${f.id})">
+                            <span class="file-number">${f.id}.</span>
                             <span class="file-full-name">${f.filename}</span>
                         </div>
+
                         <div class="file-item-stats">
                             <span>${f.total_entries} logs</span>
                             ${f.error_count > 0 ? `<span class="stat-badge error">${f.error_count} E</span>` : ''}
@@ -2109,13 +2115,36 @@
             currentIdx += delta;
             currentIdx = Math.max(0, Math.min(zoomFactors.length - 1, currentIdx));
             
+            const oldZoom = ganttZoom;
             ganttZoom = zoomFactors[currentIdx];
             document.getElementById('zoomLevel').textContent = `${ganttZoom}x`;
             
-            if (ganttData) {
+            // НОВОЕ: Сохраняем позицию скролла ПЕРЕД перерисовкой
+            const chartContainer = document.getElementById('ganttChart');
+            if (chartContainer && chartContainer.scrollLeft !== undefined) {
+                ganttScrollPos.left = chartContainer.scrollLeft;
+                ganttScrollPos.top = chartContainer.scrollTop;
+                
+                // Вычисляем относительную позицию (0-1) где находится центр экрана
+                const centerRatioX = (ganttScrollPos.left + chartContainer.clientWidth / 2) / chartContainer.scrollWidth;
+                
+                if (ganttData) {
+                    renderGanttChart();
+                    
+                    // НОВОЕ: Восстанавливаем позицию с учетом изменения масштаба
+                    requestAnimationFrame(() => {
+                        const newScrollWidth = chartContainer.scrollWidth;
+                        const newScrollLeft = (centerRatioX * newScrollWidth) - (chartContainer.clientWidth / 2);
+                        
+                        chartContainer.scrollLeft = Math.max(0, newScrollLeft);
+                        chartContainer.scrollTop = ganttScrollPos.top; // Вертикальный скролл не меняем
+                    });
+                }
+            } else if (ganttData) {
                 renderGanttChart();
             }
         }
+
 
         async function loadGanttData(fileId) {
             showProgress('Loading timeline...');
@@ -2166,23 +2195,30 @@
             `;
 
             const startTime = new Date(timeline.start);
-            // Fix: Use the maximum end time from all requests
             const maxEndTime = Math.max(...requests.map(r => new Date(r.end_time).getTime()));
-            const endTime = new Date(maxEndTime);
+            const paddingMs = (maxEndTime - startTime.getTime()) * 0.05;
+            const endTime = new Date(maxEndTime + paddingMs);
             const durationMs = endTime - startTime;
+
             
             // Calculate proper time markers based on zoom
             const baseMarkersCount = 10;
             const adjustedMarkersCount = Math.ceil(baseMarkersCount * ganttZoom);
             const timeStep = durationMs / adjustedMarkersCount;
-            
+
             const timeMarkers = [];
-            for (let i = 0; i <= adjustedMarkersCount; i++) {
-                const markerTime = new Date(startTime.getTime() + (timeStep * i));
-                if (markerTime > endTime) break;
+            let currentMarkerTime = startTime.getTime();
+            while (currentMarkerTime <= endTime.getTime()) {
                 timeMarkers.push({
-                    time: markerTime,
-                    label: formatAbsoluteTimeWithMicros(markerTime)
+                    time: new Date(currentMarkerTime),
+                    label: formatAbsoluteTimeWithMicros(new Date(currentMarkerTime))
+                });
+                currentMarkerTime += timeStep;
+            }
+            if (timeMarkers.length === 0 || timeMarkers[timeMarkers.length - 1].time < endTime) {
+                timeMarkers.push({
+                    time: endTime,
+                    label: formatAbsoluteTimeWithMicros(endTime)
                 });
             }
 
@@ -2331,10 +2367,25 @@
         document.getElementById('ganttChart').addEventListener('wheel', (e) => {
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
+                
+                const chartContainer = document.getElementById('ganttChart');
+                const rect = chartContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const contentX = (chartContainer.scrollLeft + mouseX) / chartContainer.scrollWidth;
+                
                 const delta = e.deltaY > 0 ? -1 : 1;
+                const oldZoom = ganttZoom;
                 zoomGantt(delta);
+                
+                requestAnimationFrame(() => {
+                    const newScrollLeft = (contentX * chartContainer.scrollWidth) - mouseX;
+                    chartContainer.scrollLeft = Math.max(0, newScrollLeft);
+                });
             }
         }, { passive: false });
+
 
         function showGanttDetail(request) {
             const html = `
