@@ -174,6 +174,13 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            margin-top: 40px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .sidebar.collapsed .file-list {
+            max-height: 400px;
         }
 
         .file-item {
@@ -183,6 +190,7 @@
             cursor: pointer;
             transition: all 0.2s;
             border: 2px solid transparent;
+            position: relative;
         }
 
         .sidebar.collapsed .file-item {
@@ -243,12 +251,19 @@
         }
 
         .delete-btn {
-            float: right;
+            position: absolute;
+            top: 8px;
+            right: 8px;
             background: none;
             border: none;
             color: #ff3b30;
             cursor: pointer;
             font-size: 16px;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar.collapsed .delete-btn {
+            display: none;
         }
 
         .main-content {
@@ -928,6 +943,9 @@
             position: sticky;
             top: 0;
             z-index: 11;
+            height: 48px;
+            display: flex;
+            align-items: center;
         }
 
         .gantt-label-row {
@@ -939,7 +957,14 @@
             align-items: center;
             gap: 8px;
             height: 48px;
-            background: #f5f5f7;
+        }
+
+        .gantt-label-row:nth-child(odd) {
+            background: #fafafa;
+        }
+
+        .gantt-label-row:nth-child(even) {
+            background: #f0f0f0;
         }
 
         .gantt-label-text {
@@ -948,17 +973,11 @@
             white-space: normal;
         }
 
-        .gantt-swimlane-indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: white;
-            flex-shrink: 0;
+        .gantt-swimlane-divider {
+            width: 100%;
+            height: 2px;
+            background: #1d1d1f;
+            margin: 8px 0;
         }
 
         .gantt-timeline {
@@ -974,6 +993,7 @@
             top: 0;
             z-index: 9;
             border-bottom: 1px solid #e5e5e7;
+            height: 48px;
         }
 
         .gantt-time-marker {
@@ -985,6 +1005,9 @@
             font-weight: 600;
             border-right: 1px solid rgba(255, 255, 255, 0.1);
             font-family: 'SF Mono', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .gantt-timeline-rows {
@@ -1049,6 +1072,16 @@
         .gantt-bar-duration {
             font-size: 10px;
             opacity: 0.9;
+        }
+
+        /* Connection lines between bars in same swimlane */
+        .gantt-connection-line {
+            position: absolute;
+            height: 2px;
+            background: #8e8e93;
+            top: 24px;
+            z-index: 1;
+            pointer-events: none;
         }
 
         /* Status colors */
@@ -1146,6 +1179,16 @@
             color: #86868b;
         }
 
+        .sidebar .empty-state {
+            padding: 20px 10px;
+            font-size: 13px;
+            transition: font-size 0.3s;
+        }
+
+        .sidebar.collapsed .empty-state {
+            font-size: 10px;
+        }
+
         @media (max-width: 1024px) {
             .layout {
                 grid-template-columns: 1fr;
@@ -1162,9 +1205,9 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('logs')">📋 Logs</button>
-            <button class="tab" onclick="switchTab('gantt')">📊 Request Timeline</button>
-            <button class="tab" onclick="switchTab('monitoring')">🔔 Monitoring</button>
+            <button class="tab active" onclick="switchTab('logs')" data-tab="logs">📋 Logs</button>
+            <button class="tab" onclick="switchTab('gantt')" data-tab="gantt">📊 Request Timeline</button>
+            <button class="tab" onclick="switchTab('monitoring')" data-tab="monitoring">🔔 Monitoring</button>
         </div>
 
         <div class="layout" id="mainLayout">
@@ -1172,8 +1215,8 @@
                 <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
                 <h3>Log Files</h3>
                 <div class="file-list" id="fileList">
-                    <div class="empty-state" style="padding: 40px 20px;">
-                        <p style="font-size: 13px;">No files uploaded</p>
+                    <div class="empty-state">
+                        <p>No files uploaded</p>
                     </div>
                 </div>
             </div>
@@ -1289,10 +1332,6 @@
                                     <div class="gantt-summary-value">-</div>
                                     <div>Parallel</div>
                                 </div>
-                                <div class="gantt-summary-item">
-                                    <div class="gantt-summary-value">-</div>
-                                    <div>Errors</div>
-                                </div>
                             </div>
                         </div>
                         
@@ -1406,6 +1445,7 @@
         let requestChains = {};
         let sectionNumbers = {};
         let sidebarCollapsed = false;
+        let currentTab = 'logs';
 
         const API_BASE = '';
 
@@ -1433,17 +1473,46 @@
         }
 
         function switchTab(tabName) {
+            currentTab = tabName;
+            
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
             event.target.classList.add('active');
             document.getElementById(`${tabName}-tab`).classList.add('active');
 
+            // Update file list display based on tab
+            updateFileListDisplay();
+
             if (tabName === 'gantt' && currentFileId) {
                 loadGanttData(currentFileId);
             } else if (tabName === 'monitoring') {
                 loadMonitoringData();
             }
+        }
+
+        function updateFileListDisplay() {
+            const fileItems = document.querySelectorAll('.file-item');
+            fileItems.forEach(item => {
+                const deleteBtn = item.querySelector('.delete-btn');
+                const stats = item.querySelector('.file-item-stats');
+                
+                if (currentTab === 'gantt') {
+                    // Hide delete button and error/warn badges on Timeline tab
+                    if (deleteBtn) deleteBtn.style.display = 'none';
+                    if (stats) {
+                        const badges = stats.querySelectorAll('.stat-badge');
+                        badges.forEach(badge => badge.style.display = 'none');
+                    }
+                } else {
+                    // Show everything on Logs tab
+                    if (deleteBtn && !sidebarCollapsed) deleteBtn.style.display = 'block';
+                    if (stats) {
+                        const badges = stats.querySelectorAll('.stat-badge');
+                        badges.forEach(badge => badge.style.display = 'inline-block');
+                    }
+                }
+            });
         }
 
         const uploadBox = document.getElementById('uploadBox');
@@ -1547,7 +1616,7 @@
                 const fileList = document.getElementById('fileList');
                 
                 if (files.length === 0) {
-                    fileList.innerHTML = '<div class="empty-state" style="padding: 40px 20px;"><p style="font-size: 13px;">No files uploaded</p></div>';
+                    fileList.innerHTML = '<div class="empty-state"><p>No files uploaded</p></div>';
                     return;
                 }
 
@@ -1562,6 +1631,8 @@
                         </div>
                     </div>
                 `).join('');
+
+                updateFileListDisplay();
             } catch (error) {
                 console.error('Error loading file list:', error);
             }
@@ -1569,7 +1640,7 @@
 
         function selectLogFile(fileId) {
             loadLogFile(fileId);
-            if (document.querySelector('.tab.active').textContent.includes('Request Timeline')) {
+            if (currentTab === 'gantt') {
                 loadGanttData(fileId);
             }
         }
@@ -1841,7 +1912,7 @@
         function navigateToLog(originalIndex, sectionName, pageNumber) {
             closeChainModal();
             
-            const logsTab = document.querySelector('.tab');
+            const logsTab = document.querySelector('.tab[data-tab="logs"]');
             if (!logsTab.classList.contains('active')) {
                 logsTab.click();
             }
@@ -2047,37 +2118,36 @@
             const timeline = ganttData.timeline;
             const requests = ganttData.requests;
 
-            // Update summary
+            // Update summary with 2 decimal places
             document.getElementById('ganttSummary').innerHTML = `
                 <div class="gantt-summary-item">
                     <div class="gantt-summary-value">${summary.total_requests}</div>
                     <div>Requests</div>
                 </div>
                 <div class="gantt-summary-item">
-                    <div class="gantt-summary-value">${summary.duration_seconds.toFixed(6)}s</div>
+                    <div class="gantt-summary-value">${summary.duration_seconds.toFixed(2)}s</div>
                     <div>Duration</div>
                 </div>
                 <div class="gantt-summary-item">
                     <div class="gantt-summary-value">${summary.parallel_max}</div>
                     <div>Parallel</div>
                 </div>
-                <div class="gantt-summary-item">
-                    <div class="gantt-summary-value" style="color: ${summary.total_errors > 0 ? '#ff3b30' : '#34c759'}">${summary.total_errors}</div>
-                    <div>Errors</div>
-                </div>
             `;
 
             const startTime = new Date(timeline.start);
-            const endTime = new Date(timeline.end);
+            // Fix: Use the maximum end time from all requests
+            const maxEndTime = Math.max(...requests.map(r => new Date(r.end_time).getTime()));
+            const endTime = new Date(maxEndTime);
             const durationMs = endTime - startTime;
             
-            // Calculate time scale based on zoom
-            const timeStep = (durationMs / 1000) / (10 * ganttZoom);
-            const numMarkers = Math.ceil((durationMs / 1000) / timeStep);
+            // Calculate proper time markers based on zoom
+            const baseMarkersCount = 10;
+            const adjustedMarkersCount = Math.ceil(baseMarkersCount * ganttZoom);
+            const timeStep = durationMs / adjustedMarkersCount;
             
             const timeMarkers = [];
-            for (let i = 0; i <= numMarkers; i++) {
-                const markerTime = new Date(startTime.getTime() + (timeStep * 1000 * i));
+            for (let i = 0; i <= adjustedMarkersCount; i++) {
+                const markerTime = new Date(startTime.getTime() + (timeStep * i));
                 if (markerTime > endTime) break;
                 timeMarkers.push({
                     time: markerTime,
@@ -2085,10 +2155,11 @@
                 });
             }
 
-            let labelsHTML = '<div class="gantt-labels-header">Request (tf_req_id / rpc)</div>';
+            let labelsHTML = '<div class="gantt-labels-header">Request (RPC)</div>';
             let timelineRowsHTML = '';
             let timelineHeaderHTML = '';
 
+            // Fixed width for time markers
             timeMarkers.forEach(marker => {
                 timelineHeaderHTML += `<div class="gantt-time-marker">${marker.label}</div>`;
             });
@@ -2103,15 +2174,29 @@
                 swimlaneGroups[lane].push(req);
             });
 
+            // Sort requests within swimlanes by start time
+            Object.keys(swimlaneGroups).forEach(lane => {
+                swimlaneGroups[lane].sort((a, b) => 
+                    new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+                );
+            });
+
+            // Render with dividers between swimlanes
+            let isFirstInLane = true;
             Object.keys(swimlaneGroups).sort((a, b) => parseInt(a) - parseInt(b)).forEach(lane => {
-                const laneColor = swimlaneColors[parseInt(lane) % swimlaneColors.length];
+                const laneRequests = swimlaneGroups[lane];
                 
-                swimlaneGroups[lane].forEach(req => {
+                // Add divider before each swimlane (except first)
+                if (!isFirstInLane) {
+                    labelsHTML += '<div class="gantt-swimlane-divider"></div>';
+                }
+                isFirstInLane = false;
+                
+                laneRequests.forEach((req, indexInLane) => {
                     const rpcLabel = req.rpc || 'unknown';
                     
                     labelsHTML += `
                         <div class="gantt-label-row">
-                            <div class="gantt-swimlane-indicator" style="background: ${laneColor};">${parseInt(lane) + 1}</div>
                             <div class="gantt-label-text" title="${req.req_id} - ${rpcLabel}">
                                 ${rpcLabel}
                             </div>
@@ -2121,37 +2206,54 @@
                     const reqStart = new Date(req.start_time);
                     const reqEnd = new Date(req.end_time);
                     
-                    const leftPercent = ((reqStart - startTime) / durationMs) * 100 * ganttZoom;
-                    const widthPercent = Math.max(0.1, ((reqEnd - reqStart) / durationMs) * 100 * ganttZoom);
+                    const leftPercent = ((reqStart - startTime) / durationMs) * 100;
+                    const widthPercent = Math.max(0.1, ((reqEnd - reqStart) / durationMs) * 100);
 
-                    const showText = widthPercent > 3;
+                    const showText = widthPercent * ganttZoom > 3;
+
+                    // Build grid lines
+                    const gridHTML = timeMarkers.map(() => '<div class="gantt-grid-line"></div>').join('');
+
+                    // Connection line to next request in same swimlane
+                    let connectionLineHTML = '';
+                    if (indexInLane < laneRequests.length - 1) {
+                        const nextReq = laneRequests[indexInLane + 1];
+                        const nextStart = new Date(nextReq.start_time);
+                        const connectionLeft = ((reqEnd - startTime) / durationMs) * 100;
+                        const connectionWidth = ((nextStart - reqEnd) / durationMs) * 100;
+                        
+                        if (connectionWidth > 0) {
+                            connectionLineHTML = `
+                                <div class="gantt-connection-line" style="left: ${connectionLeft}%; width: ${connectionWidth}%;"></div>
+                            `;
+                        }
+                    }
 
                     timelineRowsHTML += `
-                        <div class="gantt-timeline-row swimlane-highlight">
+                        <div class="gantt-timeline-row">
                             <div class="gantt-timeline-grid">
-                                ${timeMarkers.map(() => '<div class="gantt-grid-line"></div>').join('')}
+                                ${gridHTML}
                             </div>
+                            ${connectionLineHTML}
                             <div class="gantt-bar ${req.status}" 
                                  style="left: ${leftPercent}%; width: ${widthPercent}%;"
                                  onmouseenter="showGanttTooltip(event, ${JSON.stringify(req).replace(/"/g, '&quot;')})"
                                  onmouseleave="hideGanttTooltip()"
                                  onclick="showGanttDetail(${JSON.stringify(req).replace(/"/g, '&quot;')})">
                                 ${showText ? `<span class="gantt-bar-label">${rpcLabel}</span>` : ''}
-                                ${showText ? `<span class="gantt-bar-duration">${req.duration.toFixed(6)}s</span>` : ''}
+                                ${showText ? `<span class="gantt-bar-duration">${req.duration.toFixed(2)}s</span>` : ''}
                             </div>
                         </div>
                     `;
                 });
             });
 
-            const totalWidth = 100 * ganttZoom;
-
             chart.innerHTML = `
-                <div class="gantt-grid" style="min-width: ${totalWidth}%;">
+                <div class="gantt-grid">
                     <div class="gantt-labels">
                         ${labelsHTML}
                     </div>
-                    <div class="gantt-timeline" style="min-width: calc(${totalWidth}% - 250px);">
+                    <div class="gantt-timeline">
                         <div class="gantt-timeline-header">
                             ${timelineHeaderHTML}
                         </div>
@@ -2190,7 +2292,7 @@
                         </tr>
                         <tr style="border-bottom: 1px solid #e5e5e7;">
                             <td style="padding: 8px 0; color: #6e6e73;">Duration:</td>
-                            <td style="padding: 8px 0; font-weight: 600;">${request.duration.toFixed(6)}s</td>
+                            <td style="padding: 8px 0; font-weight: 600;">${request.duration.toFixed(2)}s</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #e5e5e7;">
                             <td style="padding: 8px 0; color: #6e6e73;">Start:</td>
@@ -2237,7 +2339,7 @@
                 </div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Duration:</span>
-                    <span>${request.duration.toFixed(6)}s</span>
+                    <span>${request.duration.toFixed(2)}s</span>
                 </div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Logs:</span>
