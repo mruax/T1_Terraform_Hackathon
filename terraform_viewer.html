@@ -114,6 +114,11 @@
             display: grid;
             grid-template-columns: 300px 1fr;
             gap: 24px;
+            transition: grid-template-columns 0.3s ease;
+        }
+
+        .layout.sidebar-collapsed {
+            grid-template-columns: 60px 1fr;
         }
 
         .sidebar {
@@ -122,12 +127,47 @@
             padding: 24px;
             height: fit-content;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            padding: 12px;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #f5f5f7;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .sidebar-toggle:hover {
+            background: #e5e5e7;
         }
 
         .sidebar h3 {
             font-size: 18px;
             margin-bottom: 16px;
             color: #1d1d1f;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar.collapsed h3 {
+            opacity: 0;
+            height: 0;
+            margin: 0;
+            overflow: hidden;
         }
 
         .file-list {
@@ -143,6 +183,10 @@
             cursor: pointer;
             transition: all 0.2s;
             border: 2px solid transparent;
+        }
+
+        .sidebar.collapsed .file-item {
+            padding: 8px;
         }
 
         .file-item:hover {
@@ -161,6 +205,11 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar.collapsed .file-item-name {
+            font-size: 10px;
         }
 
         .file-item-stats {
@@ -168,6 +217,13 @@
             gap: 12px;
             font-size: 11px;
             color: #6e6e73;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar.collapsed .file-item-stats {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
         }
 
         .stat-badge {
@@ -676,12 +732,82 @@
             white-space: nowrap;
         }
 
-        /* ==================== NEW GANTT CHART STYLES ==================== */
+        /* Progress Modal */
+        .progress-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-modal.visible {
+            display: flex;
+        }
+
+        .progress-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            min-width: 400px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e5e5e7;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #007aff;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 13px;
+            color: #6e6e73;
+            margin-bottom: 8px;
+        }
+
+        .progress-status {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #34c759;
+        }
+
+        .progress-status.error {
+            color: #ff3b30;
+        }
+
+        /* ==================== GANTT CHART STYLES ==================== */
         .gantt-container {
             background: white;
             padding: 24px;
             border-radius: 12px;
             overflow: hidden;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
         }
 
         .gantt-header {
@@ -691,11 +817,43 @@
             margin-bottom: 20px;
             padding-bottom: 16px;
             border-bottom: 1px solid #e5e5e7;
+            flex-shrink: 0;
         }
 
         .gantt-header h3 {
             font-size: 20px;
             font-weight: 700;
+        }
+
+        .gantt-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            padding: 8px 12px;
+            border: 1px solid #d2d2d7;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: #f5f5f7;
+        }
+
+        .zoom-level {
+            font-size: 12px;
+            color: #6e6e73;
+            padding: 8px 12px;
+            background: #f5f5f7;
+            border-radius: 6px;
+            min-width: 120px;
+            text-align: center;
         }
 
         .gantt-summary {
@@ -722,6 +880,7 @@
             gap: 16px;
             margin-bottom: 20px;
             font-size: 12px;
+            flex-shrink: 0;
         }
 
         .gantt-legend-item {
@@ -740,9 +899,8 @@
             position: relative;
             border: 1px solid #e5e5e7;
             border-radius: 8px;
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 600px;
+            overflow: auto;
+            flex: 1;
             background: white;
         }
 
@@ -786,9 +944,21 @@
 
         .gantt-label-text {
             flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
+        .gantt-swimlane-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
         }
 
         .gantt-timeline {
@@ -808,12 +978,13 @@
 
         .gantt-time-marker {
             flex: 1;
-            min-width: 100px;
+            min-width: 150px;
             padding: 12px 8px;
             text-align: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             border-right: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'SF Mono', monospace;
         }
 
         .gantt-timeline-rows {
@@ -824,6 +995,10 @@
             position: relative;
             height: 48px;
             border-bottom: 1px solid #e5e5e7;
+        }
+
+        .gantt-timeline-row.swimlane-highlight {
+            background: rgba(0, 122, 255, 0.03);
         }
 
         .gantt-timeline-grid {
@@ -838,7 +1013,7 @@
 
         .gantt-grid-line {
             flex: 1;
-            min-width: 100px;
+            min-width: 150px;
             border-right: 1px solid #f0f0f0;
         }
 
@@ -876,7 +1051,7 @@
             opacity: 0.9;
         }
 
-        /* Status colors - minimal, clean */
+        /* Status colors */
         .gantt-bar.success {
             background: #34c759;
         }
@@ -926,23 +1101,6 @@
 
         .gantt-tooltip-label {
             opacity: 0.7;
-        }
-
-        .gantt-dependency {
-            position: absolute;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .gantt-dependency-line {
-            stroke: #8e8e93;
-            stroke-width: 2;
-            fill: none;
-            stroke-dasharray: 4, 4;
-        }
-
-        .gantt-dependency-arrow {
-            fill: #8e8e93;
         }
 
         .metrics-grid {
@@ -1009,8 +1167,9 @@
             <button class="tab" onclick="switchTab('monitoring')">🔔 Monitoring</button>
         </div>
 
-        <div class="layout">
-            <div class="sidebar">
+        <div class="layout" id="mainLayout">
+            <div class="sidebar" id="sidebar">
+                <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
                 <h3>Log Files</h3>
                 <div class="file-list" id="fileList">
                     <div class="empty-state" style="padding: 40px 20px;">
@@ -1109,7 +1268,14 @@
                 <div class="tab-content" id="gantt-tab">
                     <div class="gantt-container">
                         <div class="gantt-header">
-                            <h3>Request Timeline</h3>
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <h3>Request Timeline</h3>
+                                <div class="gantt-controls">
+                                    <button class="zoom-btn" onclick="zoomGantt(-1)">−</button>
+                                    <div class="zoom-level" id="zoomLevel">1.0x</div>
+                                    <button class="zoom-btn" onclick="zoomGantt(1)">+</button>
+                                </div>
+                            </div>
                             <div class="gantt-summary" id="ganttSummary">
                                 <div class="gantt-summary-item">
                                     <div class="gantt-summary-value">-</div>
@@ -1200,6 +1366,29 @@
         </div>
     </div>
 
+    <!-- Gantt Detail Modal -->
+    <div class="modal" id="ganttDetailModal" onclick="closeGanttDetailModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Request Details</h3>
+                <button class="modal-close" onclick="closeGanttDetailModal()">×</button>
+            </div>
+            <div id="ganttDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div class="progress-modal" id="progressModal">
+        <div class="progress-content">
+            <div class="progress-title" id="progressTitle">Uploading file...</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">0%</div>
+            <div class="progress-status" id="progressStatus"></div>
+        </div>
+    </div>
+
     <script>
         let allLogs = [];
         let filteredLogs = [];
@@ -1211,12 +1400,37 @@
         let currentPage = 1;
         let logsPerPage = 50;
         let ganttData = null;
+        let ganttZoom = 1.0;
         let collapsedSections = new Set();
         let metricsChart = null;
         let requestChains = {};
         let sectionNumbers = {};
+        let sidebarCollapsed = false;
 
         const API_BASE = '';
+
+        // Swimlane colors for grouping
+        const swimlaneColors = [
+            '#007aff', '#34c759', '#ff9500', '#ff3b30', '#5856d6',
+            '#00c7be', '#ff2d55', '#5ac8fa', '#ffcc00', '#af52de'
+        ];
+
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const sidebar = document.getElementById('sidebar');
+            const layout = document.getElementById('mainLayout');
+            const toggle = document.querySelector('.sidebar-toggle');
+            
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+                layout.classList.add('sidebar-collapsed');
+                toggle.textContent = '▶';
+            } else {
+                sidebar.classList.remove('collapsed');
+                layout.classList.remove('sidebar-collapsed');
+                toggle.textContent = '◀';
+            }
+        }
 
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1259,30 +1473,69 @@
             if (file) uploadFile(file);
         }
 
+        function showProgress(title = 'Processing...') {
+            const modal = document.getElementById('progressModal');
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressText').textContent = '0%';
+            document.getElementById('progressStatus').textContent = '';
+            modal.classList.add('visible');
+        }
+
+        function updateProgress(percent, status = '') {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = Math.round(percent) + '%';
+            if (status) {
+                document.getElementById('progressStatus').textContent = status;
+            }
+        }
+
+        function hideProgress(delay = 0) {
+            setTimeout(() => {
+                document.getElementById('progressModal').classList.remove('visible');
+            }, delay);
+        }
+
         async function uploadFile(file) {
             const formData = new FormData();
             formData.append('file', file);
 
+            showProgress('Uploading file...');
+            updateProgress(10, 'Reading file...');
+
             try {
+                updateProgress(30, 'Sending to server...');
+                
                 const response = await fetch(`${API_BASE}/upload-log/?config=default`, {
                     method: 'POST',
                     body: formData
                 });
 
+                updateProgress(60, 'Processing logs...');
                 const data = await response.json();
                 
                 if (response.status === 409) {
-                    alert('This file has already been uploaded!');
+                    updateProgress(100, '');
+                    document.getElementById('progressStatus').textContent = 'File already exists!';
+                    document.getElementById('progressStatus').classList.add('error');
+                    hideProgress(2000);
                     return;
                 }
                 
                 if (data.status === 'success') {
+                    updateProgress(90, 'Finalizing...');
                     await loadFileList();
+                    updateProgress(100, 'Success!');
+                    document.getElementById('progressStatus').classList.remove('error');
+                    hideProgress(1500);
                     loadLogFile(data.file_id);
                 }
             } catch (error) {
                 console.error('Upload error:', error);
-                alert('Failed to upload file');
+                updateProgress(100, '');
+                document.getElementById('progressStatus').textContent = 'Upload failed!';
+                document.getElementById('progressStatus').classList.add('error');
+                hideProgress(3000);
             }
         }
 
@@ -1301,7 +1554,7 @@
                 fileList.innerHTML = files.map(f => `
                     <div class="file-item ${f.id === currentFileId ? 'active' : ''}" onclick="selectLogFile(${f.id})">
                         <button class="delete-btn" onclick="deleteLogFile(${f.id}, event)">×</button>
-                        <div class="file-item-name">${f.filename}</div>
+                        <div class="file-item-name" title="${f.filename}">${f.filename}</div>
                         <div class="file-item-stats">
                             <span>${f.total_entries} logs</span>
                             ${f.error_count > 0 ? `<span class="stat-badge error">${f.error_count} E</span>` : ''}
@@ -1325,9 +1578,14 @@
             currentFileId = fileId;
             currentPage = 1;
             
+            showProgress('Loading log file...');
+            updateProgress(20, 'Fetching data...');
+            
             try {
                 const response = await fetch(`${API_BASE}/logs/${fileId}`);
                 const data = await response.json();
+
+                updateProgress(60, 'Processing entries...');
 
                 allLogs = data.entries.map((e, idx) => ({
                     ...e,
@@ -1349,14 +1607,22 @@
                     }
                 });
 
+                updateProgress(90, 'Rendering...');
+
                 createLevelFilters();
                 filterAndDisplay();
                 document.getElementById('controls').style.display = 'flex';
                 document.getElementById('pagination').style.display = 'flex';
                 
                 await loadFileList();
+                
+                updateProgress(100, 'Done!');
+                hideProgress(800);
             } catch (error) {
                 console.error('Error loading log file:', error);
+                document.getElementById('progressStatus').textContent = 'Failed to load file!';
+                document.getElementById('progressStatus').classList.add('error');
+                hideProgress(3000);
             }
         }
 
@@ -1606,6 +1872,12 @@
             }
         }
 
+        function closeGanttDetailModal(event) {
+            if (!event || event.target.id === 'ganttDetailModal') {
+                document.getElementById('ganttDetailModal').classList.remove('visible');
+            }
+        }
+
         function displayLogs() {
             const container = document.getElementById('logsContainer');
             
@@ -1722,16 +1994,44 @@
             filterAndDisplay();
         }
 
-        // ==================== NEW GANTT CHART IMPLEMENTATION ====================
+        // ==================== GANTT CHART WITH ZOOM ====================
+
+        function zoomGantt(delta) {
+            const zoomFactors = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0, 25.0, 50.0, 100.0];
+            let currentIdx = zoomFactors.findIndex(f => Math.abs(f - ganttZoom) < 0.01);
+            
+            if (currentIdx === -1) {
+                currentIdx = zoomFactors.findIndex(f => f >= ganttZoom);
+            }
+            
+            currentIdx += delta;
+            currentIdx = Math.max(0, Math.min(zoomFactors.length - 1, currentIdx));
+            
+            ganttZoom = zoomFactors[currentIdx];
+            document.getElementById('zoomLevel').textContent = `${ganttZoom}x`;
+            
+            if (ganttData) {
+                renderGanttChart();
+            }
+        }
 
         async function loadGanttData(fileId) {
+            showProgress('Loading timeline...');
+            updateProgress(30, 'Fetching data...');
+            
             try {
                 const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
                 ganttData = await response.json();
+                
+                updateProgress(80, 'Rendering chart...');
                 renderGanttChart();
+                
+                updateProgress(100, 'Done!');
+                hideProgress(500);
             } catch (error) {
                 console.error('Error loading Gantt data:', error);
                 document.getElementById('ganttChart').innerHTML = '<div class="empty-state"><p>Error loading timeline data</p></div>';
+                hideProgress(0);
             }
         }
 
@@ -1743,18 +2043,18 @@
                 return;
             }
 
-            // Update summary
             const summary = ganttData.summary;
             const timeline = ganttData.timeline;
             const requests = ganttData.requests;
 
+            // Update summary
             document.getElementById('ganttSummary').innerHTML = `
                 <div class="gantt-summary-item">
                     <div class="gantt-summary-value">${summary.total_requests}</div>
                     <div>Requests</div>
                 </div>
                 <div class="gantt-summary-item">
-                    <div class="gantt-summary-value">${summary.duration_seconds.toFixed(2)}s</div>
+                    <div class="gantt-summary-value">${summary.duration_seconds.toFixed(6)}s</div>
                     <div>Duration</div>
                 </div>
                 <div class="gantt-summary-item">
@@ -1767,33 +2067,33 @@
                 </div>
             `;
 
-            // Calculate time markers
             const startTime = new Date(timeline.start);
             const endTime = new Date(timeline.end);
             const durationMs = endTime - startTime;
             
-            const numMarkers = 10;
+            // Calculate time scale based on zoom
+            const timeStep = (durationMs / 1000) / (10 * ganttZoom);
+            const numMarkers = Math.ceil((durationMs / 1000) / timeStep);
+            
             const timeMarkers = [];
             for (let i = 0; i <= numMarkers; i++) {
-                const markerTime = new Date(startTime.getTime() + (durationMs / numMarkers) * i);
-                const relativeSeconds = ((markerTime - startTime) / 1000).toFixed(3);
+                const markerTime = new Date(startTime.getTime() + (timeStep * 1000 * i));
+                if (markerTime > endTime) break;
                 timeMarkers.push({
                     time: markerTime,
-                    label: `+${relativeSeconds}s`,
-                    absolute: formatAbsoluteTime(markerTime)
+                    label: formatAbsoluteTimeWithMicros(markerTime)
                 });
             }
 
-            // Build HTML
-            let labelsHTML = '<div class="gantt-labels-header">Request (by tf_req_id)</div>';
+            let labelsHTML = '<div class="gantt-labels-header">Request (tf_req_id / rpc)</div>';
             let timelineRowsHTML = '';
             let timelineHeaderHTML = '';
 
             timeMarkers.forEach(marker => {
-                timelineHeaderHTML += `<div class="gantt-time-marker" title="${marker.absolute}">${marker.label}</div>`;
+                timelineHeaderHTML += `<div class="gantt-time-marker">${marker.label}</div>`;
             });
 
-            // Group requests by swimlane
+            // Group by swimlane
             const swimlaneGroups = {};
             requests.forEach(req => {
                 const lane = req.swimlane || 0;
@@ -1803,51 +2103,55 @@
                 swimlaneGroups[lane].push(req);
             });
 
-            // Render each swimlane
             Object.keys(swimlaneGroups).sort((a, b) => parseInt(a) - parseInt(b)).forEach(lane => {
+                const laneColor = swimlaneColors[parseInt(lane) % swimlaneColors.length];
+                
                 swimlaneGroups[lane].forEach(req => {
-                    // Label
                     const rpcLabel = req.rpc || 'unknown';
-                    const shortReqId = req.req_id.substring(0, 20) + (req.req_id.length > 20 ? '...' : '');
                     
                     labelsHTML += `
                         <div class="gantt-label-row">
+                            <div class="gantt-swimlane-indicator" style="background: ${laneColor};">${parseInt(lane) + 1}</div>
                             <div class="gantt-label-text" title="${req.req_id} - ${rpcLabel}">
-                                ${shortReqId}
+                                ${rpcLabel}
                             </div>
                         </div>
                     `;
 
-                    // Timeline row
                     const reqStart = new Date(req.start_time);
                     const reqEnd = new Date(req.end_time);
                     
-                    const leftPercent = ((reqStart - startTime) / durationMs) * 100;
-                    const widthPercent = Math.max(0.5, ((reqEnd - reqStart) / durationMs) * 100);
+                    const leftPercent = ((reqStart - startTime) / durationMs) * 100 * ganttZoom;
+                    const widthPercent = Math.max(0.1, ((reqEnd - reqStart) / durationMs) * 100 * ganttZoom);
+
+                    const showText = widthPercent > 3;
 
                     timelineRowsHTML += `
-                        <div class="gantt-timeline-row">
+                        <div class="gantt-timeline-row swimlane-highlight">
                             <div class="gantt-timeline-grid">
                                 ${timeMarkers.map(() => '<div class="gantt-grid-line"></div>').join('')}
                             </div>
                             <div class="gantt-bar ${req.status}" 
                                  style="left: ${leftPercent}%; width: ${widthPercent}%;"
                                  onmouseenter="showGanttTooltip(event, ${JSON.stringify(req).replace(/"/g, '&quot;')})"
-                                 onmouseleave="hideGanttTooltip()">
-                                <span class="gantt-bar-label">${rpcLabel}</span>
-                                <span class="gantt-bar-duration">${req.duration.toFixed(4)}s</span>
+                                 onmouseleave="hideGanttTooltip()"
+                                 onclick="showGanttDetail(${JSON.stringify(req).replace(/"/g, '&quot;')})">
+                                ${showText ? `<span class="gantt-bar-label">${rpcLabel}</span>` : ''}
+                                ${showText ? `<span class="gantt-bar-duration">${req.duration.toFixed(6)}s</span>` : ''}
                             </div>
                         </div>
                     `;
                 });
             });
 
+            const totalWidth = 100 * ganttZoom;
+
             chart.innerHTML = `
-                <div class="gantt-grid">
+                <div class="gantt-grid" style="min-width: ${totalWidth}%;">
                     <div class="gantt-labels">
                         ${labelsHTML}
                     </div>
-                    <div class="gantt-timeline">
+                    <div class="gantt-timeline" style="min-width: calc(${totalWidth}% - 250px);">
                         <div class="gantt-timeline-header">
                             ${timelineHeaderHTML}
                         </div>
@@ -1859,6 +2163,65 @@
             `;
         }
 
+        // Wheel zoom
+        document.getElementById('ganttChart').addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -1 : 1;
+                zoomGantt(delta);
+            }
+        }, { passive: false });
+
+        function showGanttDetail(request) {
+            const html = `
+                <div style="font-family: 'SF Mono', monospace; font-size: 12px; line-height: 1.8;">
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1d1d1f;">
+                            ${request.rpc || 'Unknown RPC'}
+                        </div>
+                        <div style="color: #6e6e73; word-break: break-all;">
+                            ${request.req_id}
+                        </div>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">Status:</td>
+                            <td style="padding: 8px 0; font-weight: 600; text-transform: uppercase;">${request.status}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">Duration:</td>
+                            <td style="padding: 8px 0; font-weight: 600;">${request.duration.toFixed(6)}s</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">Start:</td>
+                            <td style="padding: 8px 0;">${formatAbsoluteTimeWithMicros(new Date(request.start_time))}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">End:</td>
+                            <td style="padding: 8px 0;">${formatAbsoluteTimeWithMicros(new Date(request.end_time))}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">Logs:</td>
+                            <td style="padding: 8px 0; font-weight: 600;">${request.log_count}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e5e7;">
+                            <td style="padding: 8px 0; color: #6e6e73;">Swimlane:</td>
+                            <td style="padding: 8px 0; font-weight: 600;">#${request.swimlane + 1}</td>
+                        </tr>
+                        ${request.error_count > 0 ? `
+                        <tr>
+                            <td style="padding: 8px 0; color: #6e6e73;">Errors:</td>
+                            <td style="padding: 8px 0; font-weight: 600; color: #ff3b30;">${request.error_count}</td>
+                        </tr>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('ganttDetailContent').innerHTML = html;
+            document.getElementById('ganttDetailModal').classList.add('visible');
+        }
+
         function showGanttTooltip(event, request) {
             const tooltip = document.getElementById('ganttTooltip');
             
@@ -1866,7 +2229,7 @@
                 <div class="gantt-tooltip-title">${request.rpc || 'Unknown RPC'}</div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Request ID:</span>
-                    <span>${request.req_id}</span>
+                    <span>${request.req_id.substring(0, 20)}...</span>
                 </div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Status:</span>
@@ -1875,14 +2238,6 @@
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Duration:</span>
                     <span>${request.duration.toFixed(6)}s</span>
-                </div>
-                <div class="gantt-tooltip-row">
-                    <span class="gantt-tooltip-label">Start:</span>
-                    <span>${formatAbsoluteTime(new Date(request.start_time))}</span>
-                </div>
-                <div class="gantt-tooltip-row">
-                    <span class="gantt-tooltip-label">End:</span>
-                    <span>${formatAbsoluteTime(new Date(request.end_time))}</span>
                 </div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Logs:</span>
@@ -1898,15 +2253,29 @@
             
             tooltip.innerHTML = html;
             tooltip.style.display = 'block';
-            tooltip.style.left = (event.pageX + 10) + 'px';
-            tooltip.style.top = (event.pageY + 10) + 'px';
+            
+            // Smart positioning - keep within viewport
+            const rect = tooltip.getBoundingClientRect();
+            let left = event.pageX + 10;
+            let top = event.pageY + 10;
+            
+            if (left + rect.width > window.innerWidth) {
+                left = event.pageX - rect.width - 10;
+            }
+            
+            if (top + rect.height > window.innerHeight) {
+                top = event.pageY - rect.height - 10;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
         }
 
         function hideGanttTooltip() {
             document.getElementById('ganttTooltip').style.display = 'none';
         }
 
-        function formatAbsoluteTime(date) {
+        function formatAbsoluteTimeWithMicros(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
@@ -1914,8 +2283,9 @@
             const minutes = String(date.getMinutes()).padStart(2, '0');
             const seconds = String(date.getSeconds()).padStart(2, '0');
             const ms = String(date.getMilliseconds()).padStart(3, '0');
+            const us = '000'; // Microseconds placeholder
             
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}${us}`;
         }
 
         // ==================== MONITORING ====================
