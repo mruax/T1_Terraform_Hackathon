@@ -1022,85 +1022,179 @@ async def get_metrics():
 
 @app.get("/api/v1/gantt/{file_id}", tags=["Visualization"])
 async def get_gantt_data(file_id: int):
-    """Get detailed Gantt chart data with microsecond-level operations"""
+    """
+    Get Gantt chart data based on actual tf_req_id requests
+    
+    Returns:
+    - requests: List of request objects with req_id, rpc, start/end times, status
+    - swimlanes: Grouping by operation type or parallelism
+    - dependencies: Links between requests
+    - timeline: Absolute time markers
+    """
     entries = await db_manager.get_log_entries(file_id)
     if not entries:
         raise HTTPException(status_code=404, detail="Log file not found")
     
-    # Group by sections with all logs
-    sections = {}
-    current_section = None
-    section_start = None
+    # Group logs by tf_req_id
+    requests_map = {}
     
-    for entry in entries:
-        if entry['section_type'] and entry['section_type'] != current_section:
-            if current_section and section_start:
-                sections[current_section]['end'] = entry['timestamp']
-            
-            current_section = entry['section_type']
-            section_start = entry['timestamp']
-            
-            if current_section not in sections:
-                sections[current_section] = {
-                    'name': current_section,
-                    'start': section_start,
-                    'end': None,
-                    'operations': []
-                }
+    for idx, entry in enumerate(entries):
+        req_id = entry.get('req_id')
+        if not req_id:
+            continue
         
-        if current_section:
-            sections[current_section]['operations'].append({
-                'timestamp': entry['timestamp'].isoformat(),
-                'level': entry['level'],
-                'message': entry['message'],
-                'req_id': entry['req_id']
-            })
+        if req_id not in requests_map:
+            requests_map[req_id] = {
+                'req_id': req_id,
+                'logs': [],
+                'start_time': None,
+                'end_time': None,
+                'rpc': None,
+                'status': 'unknown',
+                'error_count': 0,
+                'log_indices': []
+            }
+        
+        req = requests_map[req_id]
+        req['logs'].append(entry)
+        req['log_indices'].append(idx)
+        
+        # Extract RPC from raw_json
+        if entry.get('raw_json'):
+            raw = entry['raw_json']
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except:
+                    pass
+            
+            if isinstance(raw, dict):
+                if not req['rpc'] and 'tf_rpc' in raw:
+                    req['rpc'] = raw['tf_rpc']
+        
+        # Track errors
+        if entry['level'] == 'ERROR':
+            req['error_count'] += 1
     
-    if current_section and section_start and sections[current_section]['end'] is None:
-        sections[current_section]['end'] = entries[-1]['timestamp']
+    # Calculate start/end times and status for each request
+    for req_id, req in requests_map.items():
+        logs = req['logs']
+        if not logs:
+            continue
+        
+        # Start time = first log timestamp
+        req['start_time'] = min(log['timestamp'] for log in logs)
+        
+        # End time = last log timestamp
+        req['end_time'] = max(log['timestamp'] for log in logs)
+        
+        # Determine status
+        if req['error_count'] > 0:
+            req['status'] = 'error'
+        elif any('success' in log['message'].lower() or 'complete' in log['message'].lower() for log in logs):
+            req['status'] = 'success'
+        elif any('timeout' in log['message'].lower() for log in logs):
+            req['status'] = 'timeout'
+        else:
+            req['status'] = 'running'
     
-    gantt_data = []
-    for section_name, section_data in sections.items():
-        if section_data['end']:
-            duration = (section_data['end'] - section_data['start']).total_seconds()
+    # Convert to list and sort by start time
+    requests = sorted(requests_map.values(), key=lambda r: r['start_time'])
+    
+    # Remove requests without valid time range
+    requests = [r for r in requests if r['start_time'] and r['end_time']]
+    
+    if not requests:
+        return {
+            "file_id": file_id,
+            "requests": [],
+            "swimlanes": [],
+            "timeline": {},
+            "summary": {
+                "total_requests": 0,
+                "total_errors": 0,
+                "duration_seconds": 0
+            }
+        }
+    
+    # Calculate overall timeline
+    min_time = min(r['start_time'] for r in requests)
+    max_time = max(r['end_time'] for r in requests)
+    total_duration = (max_time - min_time).total_seconds()
+    
+    # Assign swimlanes based on parallelism (non-overlapping requests share a lane)
+    swimlanes = []
+    for req in requests:
+        # Find a swimlane where this request doesn't overlap
+        placed = False
+        for lane_idx, lane in enumerate(swimlanes):
+            # Check if request overlaps with any in this lane
+            overlaps = False
+            for other_req in lane:
+                if not (req['end_time'] <= other_req['start_time'] or req['start_time'] >= other_req['end_time']):
+                    overlaps = True
+                    break
             
-            # Group operations by req_id for sub-operations
-            operations_by_req = {}
-            for op in section_data['operations']:
-                req_id = op.get('req_id', 'general')
-                if req_id not in operations_by_req:
-                    operations_by_req[req_id] = []
-                operations_by_req[req_id].append(op)
+            if not overlaps:
+                lane.append(req)
+                req['swimlane'] = lane_idx
+                placed = True
+                break
+        
+        if not placed:
+            # Create new swimlane
+            swimlanes.append([req])
+            req['swimlane'] = len(swimlanes) - 1
+    
+    # Detect dependencies (heuristic: if request B starts after A ends and they share same RPC type)
+    dependencies = []
+    for i, req_a in enumerate(requests):
+        for j, req_b in enumerate(requests):
+            if i >= j:
+                continue
             
-            # Create sub-operations
-            sub_operations = []
-            for req_id, ops in operations_by_req.items():
-                if len(ops) > 1 and req_id != 'general':
-                    op_start = datetime.fromisoformat(ops[0]['timestamp'])
-                    op_end = datetime.fromisoformat(ops[-1]['timestamp'])
-                    op_duration = (op_end - op_start).total_seconds()
-                    
-                    sub_operations.append({
-                        'id': req_id,
-                        'start': ops[0]['timestamp'],
-                        'end': ops[-1]['timestamp'],
-                        'duration': op_duration,
-                        'log_count': len(ops),
-                        'logs': ops
-                    })
-            
-            gantt_data.append({
-                'task': section_name,
-                'start': section_data['start'].isoformat(),
-                'end': section_data['end'].isoformat(),
-                'duration': duration,
-                'log_count': len(section_data['operations']),
-                'sub_operations': sub_operations
-            })
+            # Simple dependency: B starts within 100ms after A ends
+            time_gap = (req_b['start_time'] - req_a['end_time']).total_seconds()
+            if 0 < time_gap < 0.1 and req_a['rpc'] == req_b['rpc']:
+                dependencies.append({
+                    'from': req_a['req_id'],
+                    'to': req_b['req_id'],
+                    'type': 'sequential'
+                })
+    
+    # Format response
+    formatted_requests = []
+    for req in requests:
+        duration = (req['end_time'] - req['start_time']).total_seconds()
+        formatted_requests.append({
+            'req_id': req['req_id'],
+            'rpc': req['rpc'] or 'unknown',
+            'start_time': req['start_time'].isoformat(),
+            'end_time': req['end_time'].isoformat(),
+            'duration': duration,
+            'status': req['status'],
+            'log_count': len(req['logs']),
+            'error_count': req['error_count'],
+            'swimlane': req['swimlane'],
+            'log_indices': req['log_indices']
+        })
     
     return {
         "file_id": file_id,
-        "gantt_data": gantt_data
+        "requests": formatted_requests,
+        "dependencies": dependencies,
+        "timeline": {
+            "start": min_time.isoformat(),
+            "end": max_time.isoformat(),
+            "duration_seconds": total_duration,
+            "swimlane_count": len(swimlanes)
+        },
+        "summary": {
+            "total_requests": len(requests),
+            "total_errors": sum(r['error_count'] for r in requests),
+            "duration_seconds": total_duration,
+            "parallel_max": len(swimlanes)
+        }
     }
 
 @app.get("/")

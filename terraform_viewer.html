@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terraform Log Viewer 2.4</title>
+    <title>Terraform Log Viewer 3.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -676,7 +676,7 @@
             white-space: nowrap;
         }
 
-        /* Gantt Chart */
+        /* ==================== NEW GANTT CHART STYLES ==================== */
         .gantt-container {
             background: white;
             padding: 24px;
@@ -684,85 +684,75 @@
             overflow: hidden;
         }
 
-        .gantt-controls {
+        .gantt-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 16px;
             border-bottom: 1px solid #e5e5e7;
-            flex-wrap: wrap;
-            gap: 16px;
         }
 
-        .zoom-slider-container {
+        .gantt-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .gantt-summary {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-            max-width: 400px;
-        }
-
-        .zoom-slider-container label {
+            gap: 24px;
             font-size: 13px;
-            font-weight: 600;
             color: #6e6e73;
         }
 
-        .zoom-slider {
-            flex: 1;
-            height: 6px;
-            border-radius: 3px;
-            background: #d2d2d7;
-            outline: none;
-            -webkit-appearance: none;
+        .gantt-summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        .zoom-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #007aff;
-            cursor: pointer;
-        }
-
-        .zoom-slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #007aff;
-            cursor: pointer;
-            border: none;
-        }
-
-        .zoom-value {
-            font-size: 13px;
-            font-weight: 600;
+        .gantt-summary-value {
+            font-size: 20px;
+            font-weight: 700;
             color: #1d1d1f;
-            min-width: 40px;
         }
 
-        .gantt-workspace {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 0;
+        .gantt-legend {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .gantt-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .gantt-legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        .gantt-chart {
+            position: relative;
             border: 1px solid #e5e5e7;
             border-radius: 8px;
-            background: white;
+            overflow-x: auto;
+            overflow-y: auto;
             max-height: 600px;
+            background: white;
         }
 
-        .gantt-workspace.no-scroll {
-            overflow: hidden;
+        .gantt-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-width: 100%;
         }
 
-        .gantt-workspace:not(.no-scroll) {
-            overflow: auto;
-        }
-
-        .gantt-tasks-column {
+        .gantt-labels {
             background: #f5f5f7;
             border-right: 1px solid #e5e5e7;
             position: sticky;
@@ -770,10 +760,10 @@
             z-index: 10;
         }
 
-        .gantt-task-header {
+        .gantt-labels-header {
             padding: 12px 16px;
-            font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 700;
             background: #1d1d1f;
             color: white;
             border-bottom: 1px solid #e5e5e7;
@@ -782,68 +772,27 @@
             z-index: 11;
         }
 
-        .gantt-task-row {
+        .gantt-label-row {
             padding: 12px 16px;
-            border-bottom: 1px solid #e5e5e7;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
+            border-bottom: 1px solid #e5e5e7;
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 8px;
-            min-height: 48px;
+            height: 48px;
             background: #f5f5f7;
         }
 
-        .gantt-task-row.sub-task {
-            padding-left: 32px;
-            font-size: 12px;
-            font-weight: 500;
-            background: #fafafa;
-            min-height: 36px;
+        .gantt-label-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .gantt-task-row.operation {
-            padding-left: 48px;
-            font-size: 11px;
-            font-weight: 400;
-            background: white;
-            min-height: 28px;
-        }
-
-        .gantt-task-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .gantt-task-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-        }
-
-        .gantt-expand-btn {
-            background: none;
-            border: none;
-            color: #6e6e73;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 2px;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .gantt-expand-btn:hover {
-            color: #1d1d1f;
-        }
-
-        .gantt-timeline-column {
+        .gantt-timeline {
             position: relative;
-            overflow-x: auto;
             background: white;
         }
 
@@ -851,41 +800,30 @@
             display: flex;
             background: #1d1d1f;
             color: white;
-            border-bottom: 1px solid #e5e5e7;
-            min-height: 36px;
-            min-width: fit-content;
             position: sticky;
             top: 0;
             z-index: 9;
+            border-bottom: 1px solid #e5e5e7;
         }
 
-        .gantt-time-block {
+        .gantt-time-marker {
             flex: 1;
-            min-width: 80px;
-            padding: 8px;
+            min-width: 100px;
+            padding: 12px 8px;
             text-align: center;
             font-size: 11px;
+            font-weight: 600;
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .gantt-timeline-body {
+        .gantt-timeline-rows {
             position: relative;
-            min-width: fit-content;
         }
 
         .gantt-timeline-row {
             position: relative;
-            min-height: 48px;
+            height: 48px;
             border-bottom: 1px solid #e5e5e7;
-            display: flex;
-        }
-
-        .gantt-timeline-row.sub-row {
-            min-height: 36px;
-        }
-
-        .gantt-timeline-row.op-row {
-            min-height: 28px;
         }
 
         .gantt-timeline-grid {
@@ -895,65 +833,116 @@
             right: 0;
             bottom: 0;
             display: flex;
+            pointer-events: none;
         }
 
         .gantt-grid-line {
             flex: 1;
-            min-width: 80px;
+            min-width: 100px;
             border-right: 1px solid #f0f0f0;
         }
 
         .gantt-bar {
             position: absolute;
-            height: 28px;
-            top: 10px;
+            height: 32px;
+            top: 8px;
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             padding: 0 8px;
             font-size: 11px;
             font-weight: 600;
             color: white;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             white-space: nowrap;
         }
 
         .gantt-bar:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 5;
         }
 
-        .gantt-bar.plan { background: #007aff; }
-        .gantt-bar.apply { background: #34c759; }
-        .gantt-bar.validation { background: #8e8e93; }
-        .gantt-bar.destroy { background: #ff3b30; }
-        .gantt-bar.init { background: #5856d6; }
-        .gantt-bar.sub { 
-            opacity: 0.7;
-            height: 20px;
-            top: 8px;
+        .gantt-bar-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .gantt-bar.op {
-            opacity: 0.5;
-            height: 14px;
-            top: 7px;
+
+        .gantt-bar-duration {
+            font-size: 10px;
+            opacity: 0.9;
+        }
+
+        /* Status colors - minimal, clean */
+        .gantt-bar.success {
+            background: #34c759;
+        }
+
+        .gantt-bar.error {
+            background: #ff3b30;
+        }
+
+        .gantt-bar.timeout {
+            background: #ff9500;
+        }
+
+        .gantt-bar.running {
+            background: #007aff;
+        }
+
+        .gantt-bar.unknown {
+            background: #8e8e93;
         }
 
         .gantt-tooltip {
             position: fixed;
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 8px 12px;
+            padding: 12px 16px;
             border-radius: 6px;
             font-size: 12px;
             pointer-events: none;
             z-index: 1000;
             display: none;
-            max-width: 300px;
+            max-width: 350px;
+            line-height: 1.5;
+        }
+
+        .gantt-tooltip-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .gantt-tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 2px;
+        }
+
+        .gantt-tooltip-label {
+            opacity: 0.7;
+        }
+
+        .gantt-dependency {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .gantt-dependency-line {
+            stroke: #8e8e93;
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 4, 4;
+        }
+
+        .gantt-dependency-arrow {
+            fill: #8e8e93;
         }
 
         .metrics-grid {
@@ -1010,13 +999,13 @@
     <div class="container">
         <div class="header">
             <a href="/docs" class="api-docs-btn" target="_blank">📚 API Docs</a>
-            <h1>Terraform Log Viewer 2.4</h1>
-            <p>Advanced Log Analysis & Visualization</p>
+            <h1>Terraform Log Viewer 3.0</h1>
+            <p>Request-Level Analysis & Visualization</p>
         </div>
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('logs')">📋 Logs</button>
-            <button class="tab" onclick="switchTab('gantt')">📊 Gantt Chart</button>
+            <button class="tab" onclick="switchTab('gantt')">📊 Request Timeline</button>
             <button class="tab" onclick="switchTab('monitoring')">🔔 Monitoring</button>
         </div>
 
@@ -1119,16 +1108,53 @@
 
                 <div class="tab-content" id="gantt-tab">
                     <div class="gantt-container">
-                        <div class="gantt-controls">
-                            <h3>Operation Timeline</h3>
-                            <div class="zoom-slider-container">
-                                <label>Zoom:</label>
-                                <input type="range" class="zoom-slider" id="zoomSlider" min="1" max="10" value="5" step="0.5">
-                                <span class="zoom-value" id="zoomValue">1x</span>
+                        <div class="gantt-header">
+                            <h3>Request Timeline</h3>
+                            <div class="gantt-summary" id="ganttSummary">
+                                <div class="gantt-summary-item">
+                                    <div class="gantt-summary-value">-</div>
+                                    <div>Requests</div>
+                                </div>
+                                <div class="gantt-summary-item">
+                                    <div class="gantt-summary-value">-</div>
+                                    <div>Duration</div>
+                                </div>
+                                <div class="gantt-summary-item">
+                                    <div class="gantt-summary-value">-</div>
+                                    <div>Parallel</div>
+                                </div>
+                                <div class="gantt-summary-item">
+                                    <div class="gantt-summary-value">-</div>
+                                    <div>Errors</div>
+                                </div>
                             </div>
                         </div>
-                        <div class="gantt-workspace" id="ganttWorkspace">
-                            <div class="empty-state" style="grid-column: 1 / -1;">
+                        
+                        <div class="gantt-legend">
+                            <div class="gantt-legend-item">
+                                <div class="gantt-legend-color" style="background: #34c759;"></div>
+                                <span>Success</span>
+                            </div>
+                            <div class="gantt-legend-item">
+                                <div class="gantt-legend-color" style="background: #ff3b30;"></div>
+                                <span>Error</span>
+                            </div>
+                            <div class="gantt-legend-item">
+                                <div class="gantt-legend-color" style="background: #ff9500;"></div>
+                                <span>Timeout</span>
+                            </div>
+                            <div class="gantt-legend-item">
+                                <div class="gantt-legend-color" style="background: #007aff;"></div>
+                                <span>Running</span>
+                            </div>
+                            <div class="gantt-legend-item">
+                                <div class="gantt-legend-color" style="background: #8e8e93;"></div>
+                                <span>Unknown</span>
+                            </div>
+                        </div>
+
+                        <div class="gantt-chart" id="ganttChart">
+                            <div class="empty-state">
                                 <p>Select a log file to view timeline</p>
                             </div>
                         </div>
@@ -1178,20 +1204,17 @@
         let allLogs = [];
         let filteredLogs = [];
         let activeLevels = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']);
-        let chainFilter = 'all'; // 'all', 'with_chain', 'no_chain'
+        let chainFilter = 'all';
         let hideRead = false;
         let readLogs = new Set(JSON.parse(localStorage.getItem('readLogs') || '[]'));
         let currentFileId = null;
         let currentPage = 1;
         let logsPerPage = 50;
-        let ganttZoom = 1;
         let ganttData = null;
-        let expandedTasks = new Set();
-        let expandedSubTasks = new Set();
         let collapsedSections = new Set();
         let metricsChart = null;
         let requestChains = {};
-        let sectionNumbers = {}; // Global section numbers
+        let sectionNumbers = {};
 
         const API_BASE = '';
 
@@ -1293,7 +1316,7 @@
 
         function selectLogFile(fileId) {
             loadLogFile(fileId);
-            if (document.querySelector('.tab.active').textContent.includes('Gantt')) {
+            if (document.querySelector('.tab.active').textContent.includes('Request Timeline')) {
                 loadGanttData(fileId);
             }
         }
@@ -1314,7 +1337,6 @@
 
                 requestChains = data.request_chains || {};
 
-                // Calculate global section numbers
                 sectionNumbers = {};
                 let sectionCounter = 1;
                 const seenSections = new Set();
@@ -1473,7 +1495,6 @@
                 const matchesSearch = !searchTerm || log.message.toLowerCase().includes(searchTerm);
                 const matchesRead = !hideRead || !readLogs.has(log.originalIndex);
                 
-                // Chain filter
                 let matchesChain = true;
                 if (chainFilter === 'with_chain') {
                     matchesChain = log.req_id && requestChains[log.req_id];
@@ -1530,11 +1551,8 @@
             let html = `<p style="margin-bottom: 16px; color: #6e6e73; font-size: 14px;">Request ID: <strong>${reqId}</strong> · ${chainLogs.length} logs</p>`;
             
             chainLogs.forEach((log, i) => {
-                // Find which section this log belongs to
                 const section = log.section_type || 'general';
                 const sectionNum = sectionNumbers[section] || 0;
-                
-                // Calculate which page this log would be on
                 const logPageNumber = Math.floor(filteredLogs.indexOf(log) / logsPerPage) + 1;
                 
                 html += `
@@ -1557,25 +1575,21 @@
         function navigateToLog(originalIndex, sectionName, pageNumber) {
             closeChainModal();
             
-            // Switch to logs tab if not already there
             const logsTab = document.querySelector('.tab');
             if (!logsTab.classList.contains('active')) {
                 logsTab.click();
             }
             
-            // Go to the right page
             if (pageNumber && pageNumber >= 1) {
                 currentPage = pageNumber;
                 displayLogs();
             }
             
-            // Expand the section if collapsed
             if (collapsedSections.has(sectionName)) {
                 collapsedSections.delete(sectionName);
                 displayLogs();
             }
             
-            // Scroll to and highlight the log
             setTimeout(() => {
                 const logElement = document.getElementById(`log-${originalIndex}`);
                 if (logElement) {
@@ -1605,7 +1619,6 @@
             const endIdx = startIdx + logsPerPage;
             const pageLog = filteredLogs.slice(startIdx, endIdx);
             
-            // Group current page logs by section
             const sections = {};
             pageLog.forEach(log => {
                 const section = log.section_type || 'general';
@@ -1615,7 +1628,6 @@
                 sections[section].push(log);
             });
             
-            // Count stats across ALL filtered logs (not just current page)
             const sectionCounts = {};
             filteredLogs.forEach(log => {
                 const section = log.section_type || 'general';
@@ -1710,219 +1722,180 @@
             filterAndDisplay();
         }
 
+        // ==================== NEW GANTT CHART IMPLEMENTATION ====================
+
         async function loadGanttData(fileId) {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
-                const data = await response.json();
-                ganttData = data.gantt_data;
-                expandedTasks.clear();
-                expandedSubTasks.clear();
+                ganttData = await response.json();
                 renderGanttChart();
             } catch (error) {
                 console.error('Error loading Gantt data:', error);
+                document.getElementById('ganttChart').innerHTML = '<div class="empty-state"><p>Error loading timeline data</p></div>';
             }
-        }
-
-        document.getElementById('zoomSlider').addEventListener('input', (e) => {
-            ganttZoom = parseFloat(e.target.value);
-            document.getElementById('zoomValue').textContent = ganttZoom.toFixed(1) + 'x';
-            renderGanttChart();
-        });
-
-        function toggleTaskExpand(taskName, event) {
-            event.stopPropagation();
-            if (expandedTasks.has(taskName)) {
-                expandedTasks.delete(taskName);
-            } else {
-                expandedTasks.add(taskName);
-            }
-            renderGanttChart();
-        }
-
-        function toggleSubTaskExpand(subTaskId, event) {
-            event.stopPropagation();
-            if (expandedSubTasks.has(subTaskId)) {
-                expandedSubTasks.delete(subTaskId);
-            } else {
-                expandedSubTasks.add(subTaskId);
-            }
-            renderGanttChart();
         }
 
         function renderGanttChart() {
-            const workspace = document.getElementById('ganttWorkspace');
+            const chart = document.getElementById('ganttChart');
             
-            if (!ganttData || ganttData.length === 0) {
-                workspace.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><p>No operations found</p></div>';
+            if (!ganttData || !ganttData.requests || ganttData.requests.length === 0) {
+                chart.innerHTML = '<div class="empty-state"><p>No requests found in this log file</p></div>';
                 return;
             }
 
-            const minStart = Math.min(...ganttData.map(d => new Date(d.start).getTime()));
-            const maxEnd = Math.max(...ganttData.map(d => new Date(d.end).getTime()));
-            const totalDuration = maxEnd - minStart;
-            
-            const blockWidth = 80 * ganttZoom;
-            const numBlocks = Math.max(10, Math.ceil(totalDuration / (1000 * Math.pow(10, -ganttZoom + 5))));
-            
-            const timeBlocks = [];
-            for (let i = 0; i <= numBlocks; i++) {
-                const time = new Date(minStart + (totalDuration / numBlocks) * i);
-                const seconds = ((time.getTime() - minStart) / 1000).toFixed(3);
-                timeBlocks.push(`+${seconds}s`);
-            }
+            // Update summary
+            const summary = ganttData.summary;
+            const timeline = ganttData.timeline;
+            const requests = ganttData.requests;
 
-            const colors = {
-                'plan': '#007aff',
-                'apply': '#34c759',
-                'validation': '#8e8e93',
-                'destroy': '#ff3b30',
-                'init': '#5856d6'
-            };
-
-            let tasksHTML = '';
-            let timelinesHTML = '';
-
-            ganttData.forEach(task => {
-                const hasSubOps = task.sub_operations && task.sub_operations.length > 0;
-                const isExpanded = expandedTasks.has(task.task);
-                
-                // Main task row
-                tasksHTML += `
-                    <div class="gantt-task-row">
-                        <div class="gantt-task-label">
-                            ${hasSubOps ? `<button class="gantt-expand-btn" onclick="toggleTaskExpand('${task.task}', event)">${isExpanded ? '▼' : '▶'}</button>` : '<span style="width:18px;display:inline-block;"></span>'}
-                            <div class="gantt-task-color" style="background: ${colors[task.task] || '#666'}"></div>
-                            ${task.task}
-                        </div>
-                    </div>
-                `;
-
-                const start = new Date(task.start).getTime();
-                const end = new Date(task.end).getTime();
-                const duration = end - start;
-                
-                const leftPercent = ((start - minStart) / totalDuration) * 100;
-                const widthPercent = Math.max(0.5, (duration / totalDuration) * 100);
-
-                timelinesHTML += `
-                    <div class="gantt-timeline-row">
-                        <div class="gantt-timeline-grid">
-                            ${timeBlocks.map(() => `<div class="gantt-grid-line" style="min-width: ${blockWidth}px;"></div>`).join('')}
-                        </div>
-                        <div class="gantt-bar ${task.task}" 
-                             style="left: ${leftPercent}%; width: ${widthPercent}%; min-width: ${blockWidth}px;"
-                             onmouseenter="showGanttTooltip(event, '${task.task}', ${task.duration}, ${task.log_count})"
-                             onmouseleave="hideGanttTooltip()">
-                            ${task.duration.toFixed(3)}s
-                        </div>
-                    </div>
-                `;
-
-                // Sub-operations
-                if (isExpanded && hasSubOps) {
-                    task.sub_operations.forEach(subOp => {
-                        const hasLogs = subOp.logs && subOp.logs.length > 0;
-                        const subExpanded = expandedSubTasks.has(subOp.id);
-                        
-                        tasksHTML += `
-                            <div class="gantt-task-row sub-task">
-                                <div class="gantt-task-label" style="padding-left: 8px;">
-                                    ${hasLogs ? `<button class="gantt-expand-btn" onclick="toggleSubTaskExpand('${subOp.id}', event)">${subExpanded ? '▼' : '▶'}</button>` : '<span style="width:18px;display:inline-block;"></span>'}
-                                    <div class="gantt-task-color" style="background: ${colors[task.task] || '#666'}; opacity: 0.6;"></div>
-                                    ${subOp.id.substring(0, 20)}...
-                                </div>
-                            </div>
-                        `;
-
-                        const subStart = new Date(subOp.start).getTime();
-                        const subEnd = new Date(subOp.end).getTime();
-                        const subDuration = subEnd - subStart;
-                        
-                        const subLeftPercent = ((subStart - minStart) / totalDuration) * 100;
-                        const subWidthPercent = Math.max(0.5, (subDuration / totalDuration) * 100);
-
-                        timelinesHTML += `
-                            <div class="gantt-timeline-row sub-row">
-                                <div class="gantt-timeline-grid">
-                                    ${timeBlocks.map(() => `<div class="gantt-grid-line" style="min-width: ${blockWidth}px;"></div>`).join('')}
-                                </div>
-                                <div class="gantt-bar ${task.task} sub" 
-                                     style="left: ${subLeftPercent}%; width: ${subWidthPercent}%; min-width: ${Math.max(40, blockWidth * 0.5)}px;"
-                                     onmouseenter="showGanttTooltip(event, '${subOp.id}', ${subOp.duration}, ${subOp.log_count})"
-                                     onmouseleave="hideGanttTooltip()">
-                                    ${subOp.duration < 0.001 ? '<1ms' : subOp.duration.toFixed(4) + 's'}
-                                </div>
-                            </div>
-                        `;
-
-                        // Individual log operations
-                        if (subExpanded && hasLogs) {
-                            subOp.logs.forEach((log, logIdx) => {
-                                tasksHTML += `
-                                    <div class="gantt-task-row operation">
-                                        <div class="gantt-task-label" style="padding-left: 8px;">
-                                            <span style="width:18px;display:inline-block;"></span>
-                                            <span style="font-size: 10px; color: #6e6e73;">${formatTimestampFull(log.timestamp)}</span>
-                                            <span style="font-size: 10px;">${log.level}</span>
-                                        </div>
-                                    </div>
-                                `;
-
-                                const logTime = new Date(log.timestamp).getTime();
-                                const logLeftPercent = ((logTime - minStart) / totalDuration) * 100;
-
-                                timelinesHTML += `
-                                    <div class="gantt-timeline-row op-row">
-                                        <div class="gantt-timeline-grid">
-                                            ${timeBlocks.map(() => `<div class="gantt-grid-line" style="min-width: ${blockWidth}px;"></div>`).join('')}
-                                        </div>
-                                        <div class="gantt-bar ${task.task} op" 
-                                             style="left: ${logLeftPercent}%; width: 0.5%; min-width: 20px;"
-                                             onmouseenter="showGanttTooltip(event, 'Log #${logIdx + 1}', 0, 1, '${escapeHtml(log.message).substring(0, 50)}...')"
-                                             onmouseleave="hideGanttTooltip()">
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                        }
-                    });
-                }
-            });
-
-            workspace.innerHTML = `
-                <div class="gantt-tasks-column">
-                    <div class="gantt-task-header">Task</div>
-                    ${tasksHTML}
+            document.getElementById('ganttSummary').innerHTML = `
+                <div class="gantt-summary-item">
+                    <div class="gantt-summary-value">${summary.total_requests}</div>
+                    <div>Requests</div>
                 </div>
-                <div class="gantt-timeline-column">
-                    <div class="gantt-timeline-header">
-                        ${timeBlocks.map(block => `<div class="gantt-time-block" style="min-width: ${blockWidth}px;">${block}</div>`).join('')}
-                    </div>
-                    <div class="gantt-timeline-body">
-                        ${timelinesHTML}
-                    </div>
+                <div class="gantt-summary-item">
+                    <div class="gantt-summary-value">${summary.duration_seconds.toFixed(2)}s</div>
+                    <div>Duration</div>
+                </div>
+                <div class="gantt-summary-item">
+                    <div class="gantt-summary-value">${summary.parallel_max}</div>
+                    <div>Parallel</div>
+                </div>
+                <div class="gantt-summary-item">
+                    <div class="gantt-summary-value" style="color: ${summary.total_errors > 0 ? '#ff3b30' : '#34c759'}">${summary.total_errors}</div>
+                    <div>Errors</div>
                 </div>
             `;
 
-            if (ganttZoom === 1.0) {
-                workspace.classList.add('no-scroll');
-            } else {
-                workspace.classList.remove('no-scroll');
+            // Calculate time markers
+            const startTime = new Date(timeline.start);
+            const endTime = new Date(timeline.end);
+            const durationMs = endTime - startTime;
+            
+            const numMarkers = 10;
+            const timeMarkers = [];
+            for (let i = 0; i <= numMarkers; i++) {
+                const markerTime = new Date(startTime.getTime() + (durationMs / numMarkers) * i);
+                const relativeSeconds = ((markerTime - startTime) / 1000).toFixed(3);
+                timeMarkers.push({
+                    time: markerTime,
+                    label: `+${relativeSeconds}s`,
+                    absolute: formatAbsoluteTime(markerTime)
+                });
             }
+
+            // Build HTML
+            let labelsHTML = '<div class="gantt-labels-header">Request (by tf_req_id)</div>';
+            let timelineRowsHTML = '';
+            let timelineHeaderHTML = '';
+
+            timeMarkers.forEach(marker => {
+                timelineHeaderHTML += `<div class="gantt-time-marker" title="${marker.absolute}">${marker.label}</div>`;
+            });
+
+            // Group requests by swimlane
+            const swimlaneGroups = {};
+            requests.forEach(req => {
+                const lane = req.swimlane || 0;
+                if (!swimlaneGroups[lane]) {
+                    swimlaneGroups[lane] = [];
+                }
+                swimlaneGroups[lane].push(req);
+            });
+
+            // Render each swimlane
+            Object.keys(swimlaneGroups).sort((a, b) => parseInt(a) - parseInt(b)).forEach(lane => {
+                swimlaneGroups[lane].forEach(req => {
+                    // Label
+                    const rpcLabel = req.rpc || 'unknown';
+                    const shortReqId = req.req_id.substring(0, 20) + (req.req_id.length > 20 ? '...' : '');
+                    
+                    labelsHTML += `
+                        <div class="gantt-label-row">
+                            <div class="gantt-label-text" title="${req.req_id} - ${rpcLabel}">
+                                ${shortReqId}
+                            </div>
+                        </div>
+                    `;
+
+                    // Timeline row
+                    const reqStart = new Date(req.start_time);
+                    const reqEnd = new Date(req.end_time);
+                    
+                    const leftPercent = ((reqStart - startTime) / durationMs) * 100;
+                    const widthPercent = Math.max(0.5, ((reqEnd - reqStart) / durationMs) * 100);
+
+                    timelineRowsHTML += `
+                        <div class="gantt-timeline-row">
+                            <div class="gantt-timeline-grid">
+                                ${timeMarkers.map(() => '<div class="gantt-grid-line"></div>').join('')}
+                            </div>
+                            <div class="gantt-bar ${req.status}" 
+                                 style="left: ${leftPercent}%; width: ${widthPercent}%;"
+                                 onmouseenter="showGanttTooltip(event, ${JSON.stringify(req).replace(/"/g, '&quot;')})"
+                                 onmouseleave="hideGanttTooltip()">
+                                <span class="gantt-bar-label">${rpcLabel}</span>
+                                <span class="gantt-bar-duration">${req.duration.toFixed(4)}s</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            chart.innerHTML = `
+                <div class="gantt-grid">
+                    <div class="gantt-labels">
+                        ${labelsHTML}
+                    </div>
+                    <div class="gantt-timeline">
+                        <div class="gantt-timeline-header">
+                            ${timelineHeaderHTML}
+                        </div>
+                        <div class="gantt-timeline-rows">
+                            ${timelineRowsHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        function showGanttTooltip(event, task, duration, logCount, message) {
+        function showGanttTooltip(event, request) {
             const tooltip = document.getElementById('ganttTooltip');
-            let html = `<strong>${task}</strong><br>`;
-            if (duration !== undefined) {
-                html += `Duration: ${duration < 0.001 ? '<0.001s' : duration.toFixed(6)}s<br>`;
-            }
-            if (logCount !== undefined) {
-                html += `Logs: ${logCount}<br>`;
-            }
-            if (message) {
-                html += `Message: ${message}`;
-            }
+            
+            const html = `
+                <div class="gantt-tooltip-title">${request.rpc || 'Unknown RPC'}</div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Request ID:</span>
+                    <span>${request.req_id}</span>
+                </div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Status:</span>
+                    <span style="text-transform: uppercase; font-weight: 600;">${request.status}</span>
+                </div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Duration:</span>
+                    <span>${request.duration.toFixed(6)}s</span>
+                </div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Start:</span>
+                    <span>${formatAbsoluteTime(new Date(request.start_time))}</span>
+                </div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">End:</span>
+                    <span>${formatAbsoluteTime(new Date(request.end_time))}</span>
+                </div>
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Logs:</span>
+                    <span>${request.log_count}</span>
+                </div>
+                ${request.error_count > 0 ? `
+                <div class="gantt-tooltip-row">
+                    <span class="gantt-tooltip-label">Errors:</span>
+                    <span style="color: #ff3b30; font-weight: 600;">${request.error_count}</span>
+                </div>
+                ` : ''}
+            `;
+            
             tooltip.innerHTML = html;
             tooltip.style.display = 'block';
             tooltip.style.left = (event.pageX + 10) + 'px';
@@ -1932,6 +1905,20 @@
         function hideGanttTooltip() {
             document.getElementById('ganttTooltip').style.display = 'none';
         }
+
+        function formatAbsoluteTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            const ms = String(date.getMilliseconds()).padStart(3, '0');
+            
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+        }
+
+        // ==================== MONITORING ====================
 
         async function loadMonitoringData() {
             try {
@@ -1992,7 +1979,7 @@
                 const minutes = String(date.getMinutes()).padStart(2, '0');
                 const seconds = String(date.getSeconds()).padStart(2, '0');
                 const ms = String(date.getMilliseconds()).padStart(3, '0');
-                const us = '000'; // Placeholder for microseconds (not available in JS Date)
+                const us = '000';
                 
                 return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}${us}`;
             } catch {
