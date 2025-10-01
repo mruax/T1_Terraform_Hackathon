@@ -1,12 +1,21 @@
 import re
 import json
-from datetime import datetime
+import logging
+import traceback
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 from abc import ABC, abstractmethod
 import asyncpg
 from contextlib import asynccontextmanager
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # ==================== ENHANCED LOG LEVEL & TIMESTAMP EXTRACTION ====================
 
@@ -68,32 +77,39 @@ class SensitiveDataPlugin(LogPlugin):
             return f"{value[:4]}...{self.redact_value}"
         return self.redact_value
     
-    def _sanitize_dict(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        sanitized = {}
-        
-        for key, value in data.items():
-            key_lower = key.lower()
-            
-            if any(sensitive in key_lower for sensitive in self.SENSITIVE_KEYS):
-                sanitized[key] = self._redact_value(value)
-            elif isinstance(value, dict):
-                sanitized[key] = self._sanitize_dict(value)
-            elif isinstance(value, list):
-                sanitized[key] = [
-                    self._sanitize_dict(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
-            elif isinstance(value, str):
-                if self.TOKEN_PATTERN.search(value) or self.KEY_PATTERN.search(value):
+    def _sanitize_string(self, text: str) -> str:
+        """Remove tokens from text using patterns"""
+        if self.TOKEN_PATTERN.search(text) or self.KEY_PATTERN.search(text):
+            text = self.TOKEN_PATTERN.sub(self.redact_value, text)
+            text = self.KEY_PATTERN.sub(self.redact_value, text)
+        return text
+    
+    def _sanitize_dict(self, data: Any) -> Any:
+        """Recursively sanitize data structure (dict, list, or scalar)"""
+        if isinstance(data, dict):
+            sanitized = {}
+            for key, value in data.items():
+                key_lower = key.lower()
+                
+                if any(sensitive in key_lower for sensitive in self.SENSITIVE_KEYS):
                     sanitized[key] = self._redact_value(value)
                 else:
-                    sanitized[key] = value
-            else:
-                sanitized[key] = value
+                    sanitized[key] = self._sanitize_dict(value)
+            return sanitized
         
-        return sanitized
+        elif isinstance(data, list):
+            return [self._sanitize_dict(item) for item in data]
+        
+        elif isinstance(data, str):
+            return self._sanitize_string(data)
+        
+        else:
+            return data
     
     def process_json(self, json_obj: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(json_obj, dict):
+            logger.warning(f"SensitiveDataPlugin received non-dict json_obj: {type(json_obj)}")
+            return json_obj
         return self._sanitize_dict(json_obj)
     
     def process_entry(self, entry: LogEntry) -> Optional[LogEntry]:
@@ -103,6 +119,8 @@ class SensitiveDataPlugin(LogPlugin):
             entry.http_response = self._sanitize_dict(entry.http_response)
         if entry.terraform_metadata:
             entry.terraform_metadata = self._sanitize_dict(entry.terraform_metadata)
+        if entry.message and isinstance(entry.message, str):
+            entry.message = self._sanitize_string(entry.message)
         
         return entry
 
@@ -233,17 +251,17 @@ class TerraformLogParser:
             try:
                 ts_str = json_obj['@timestamp']
                 return datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Error parsing @timestamp: {e}")
         
         m = self.ISO_RE.search(log_str)
         if m:
             try:
                 return datetime.fromisoformat(m.group(0).replace('Z', '+00:00'))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug(f"Error parsing ISO timestamp: {e}")
         
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     
     def extract_level(self, log_str: str, json_obj: Optional[Dict] = None) -> LogLevel:
         if json_obj and '@level' in json_obj:
@@ -330,7 +348,7 @@ class TerraformLogParser:
         
         timestamp = self.extract_timestamp(line, json_obj)
         if not timestamp:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
         
         level = self.extract_level(line, json_obj)
         
@@ -391,13 +409,23 @@ class DatabaseManager:
     def __init__(self, db_url: str):
         self.db_url = db_url
         self.pool = None
+        logger.info(f"DatabaseManager initialized with URL: {db_url}")
     
     async def connect(self):
-        self.pool = await asyncpg.create_pool(self.db_url, min_size=2, max_size=10)
-        await self._create_tables()
+        logger.info("Connecting to database...")
+        try:
+            self.pool = await asyncpg.create_pool(self.db_url, min_size=2, max_size=10)
+            logger.info("Database connection pool created")
+            await self._create_tables()
+            logger.info("Database tables verified/created")
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     async def disconnect(self):
         if self.pool:
+            logger.info("Closing database connection pool")
             await self.pool.close()
     
     async def _create_tables(self):
@@ -439,22 +467,60 @@ class DatabaseManager:
         error_count = sum(1 for e in entries if e.level == LogLevel.ERROR)
         warn_count = sum(1 for e in entries if e.level == LogLevel.WARN)
         
+        logger.info(f"Saving log file: {filename}, entries: {len(entries)}, errors: {error_count}, warnings: {warn_count}")
+        
         async with self.pool.acquire() as conn:
-            file_id = await conn.fetchval('''
-                INSERT INTO log_files (filename, total_entries, error_count, warn_count)
-                VALUES ($1, $2, $3, $4)
-                RETURNING id
-            ''', filename, len(entries), error_count, warn_count)
-            
-            for entry in entries:
-                await conn.execute('''
-                    INSERT INTO log_entries (file_id, timestamp, level, message, raw_json, section_type, req_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT DO NOTHING
-                ''', file_id, entry.timestamp, entry.level.name, entry.message, 
-                json.dumps(entry.raw_json), entry.section_type, entry.req_id)
-            
-            return file_id
+            try:
+                file_id = await conn.fetchval('''
+                    INSERT INTO log_files (filename, total_entries, error_count, warn_count)
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING id
+                ''', filename, len(entries), error_count, warn_count)
+                
+                logger.info(f"Created log_files record with id: {file_id}")
+                
+                entry_count = 0
+                for i, entry in enumerate(entries):
+                    try:
+                        # Ensure timestamp is a datetime object and convert to naive UTC
+                        if isinstance(entry.timestamp, str):
+                            ts = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
+                        else:
+                            ts = entry.timestamp
+                        
+                        # Convert timezone-aware to naive UTC for PostgreSQL TIMESTAMP
+                        if ts.tzinfo is not None:
+                            ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+                        
+                        # Convert raw_json to JSON string
+                        raw_json_str = json.dumps(entry.raw_json) if entry.raw_json else None
+                        
+                        await conn.execute('''
+                            INSERT INTO log_entries (file_id, timestamp, level, message, raw_json, section_type, req_id)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            ON CONFLICT DO NOTHING
+                        ''', file_id, ts, entry.level.name, entry.message, 
+                        raw_json_str, entry.section_type, entry.req_id)
+                        
+                        entry_count += 1
+                        
+                        if i % 100 == 0:
+                            logger.debug(f"Saved {i}/{len(entries)} entries")
+                            
+                    except Exception as entry_error:
+                        logger.error(f"Error saving entry {i}: {str(entry_error)}")
+                        logger.error(f"Entry data: timestamp={entry.timestamp}, level={entry.level.name}, message_len={len(entry.message)}")
+                        if i < 3:  # Log first 3 problematic entries in detail
+                            logger.error(f"Full entry: {entry}")
+                        raise
+                
+                logger.info(f"Successfully saved {entry_count} entries")
+                return file_id
+                
+            except Exception as e:
+                logger.error(f"Error in save_log_file: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                raise
     
     async def get_log_files(self) -> List[Dict]:
         async with self.pool.acquire() as conn:
@@ -550,6 +616,8 @@ async def upload_log(
     include_fields: Optional[str] = Query(None, description="Comma-separated fields to include (whitelist)")
 ):
     """Upload and parse Terraform log file with configurable plugins"""
+    logger.info(f"Received file upload: {file.filename}")
+    
     if not file.filename.endswith(('.log', '.txt', '.json')):
         raise HTTPException(status_code=400, detail="Invalid file type")
     
@@ -558,33 +626,66 @@ async def upload_log(
         
         if redact_sensitive:
             plugins.append(SensitiveDataPlugin())
+            logger.debug("Added SensitiveDataPlugin")
         
         if exclude_fields or include_fields:
             exclude_list = exclude_fields.split(',') if exclude_fields else None
             include_list = include_fields.split(',') if include_fields else None
             plugins.append(FieldFilterPlugin(exclude_fields=exclude_list, include_fields=include_list))
+            logger.debug(f"Added FieldFilterPlugin: exclude={exclude_list}, include={include_list}")
         
         try:
             level_enum = LogLevel[min_level.upper()]
             plugins.append(LogLevelFilterPlugin(level_enum))
+            logger.debug(f"Added LogLevelFilterPlugin: {level_enum}")
         except KeyError:
-            pass
+            logger.warning(f"Invalid log level: {min_level}")
         
         if remove_noise:
             plugins.append(NoiseFilterPlugin())
+            logger.debug("Added NoiseFilterPlugin")
         
         if compress_bodies:
             plugins.append(HTTPBodyCompressionPlugin())
+            logger.debug("Added HTTPBodyCompressionPlugin")
         
         parser = TerraformLogParser(plugins=plugins)
+        logger.info("Parser initialized with plugins")
         
+        # Read file content
         content = await file.read()
-        lines = content.decode('utf-8').splitlines()
+        logger.info(f"Read {len(content)} bytes from file")
         
-        entries = parser.parse_lines(lines)
+        lines = content.decode('utf-8').splitlines()
+        logger.info(f"Split into {len(lines)} lines")
+        
+        # Parse lines
+        entries = []
+        parse_errors = 0
+        for i, line in enumerate(lines):
+            try:
+                entry = parser.parse_line(line)
+                if entry:
+                    entries.append(entry)
+            except Exception as e:
+                parse_errors += 1
+                if parse_errors <= 5:  # Log first 5 errors
+                    logger.error(f"Error parsing line {i}: {str(e)}\nLine: {line[:100]}")
+        
+        logger.info(f"Parsed {len(entries)} entries, {parse_errors} errors")
+        
+        if len(entries) == 0:
+            raise HTTPException(status_code=400, detail="No valid log entries found in file")
         
         # Save to database
-        file_id = await db_manager.save_log_file(file.filename, entries)
+        logger.info("Attempting to save to database")
+        try:
+            file_id = await db_manager.save_log_file(file.filename, entries)
+            logger.info(f"Saved to database with file_id: {file_id}")
+        except Exception as db_error:
+            logger.error(f"Database save error: {str(db_error)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
         
         req_resp_map = {}
         for i, entry in enumerate(entries):
@@ -612,6 +713,7 @@ async def upload_log(
                 rpc=entry.rpc
             ))
         
+        logger.info("Upload completed successfully")
         return {
             "status": "success",
             "file_id": file_id,
@@ -619,10 +721,15 @@ async def upload_log(
             "entries": response_entries,
             "sections_detected": list(set(e.section_type for e in entries if e.section_type)),
             "linked_pairs": len(req_resp_map),
-            "plugins_applied": [type(p).__name__ for p in plugins]
+            "plugins_applied": [type(p).__name__ for p in plugins],
+            "parse_errors": parse_errors
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Unexpected error in upload_log: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error processing log: {str(e)}")
 
 @app.get("/logs/", response_model=List[LogFileInfo], tags=["Logs"])

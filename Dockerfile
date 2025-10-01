@@ -28,7 +28,7 @@ host="$1"
 shift
 cmd="$@"
 
-until pg_isready -h "$host" -U terraform; do
+until pg_isready -h "$host" -U terraform -d terraform_logs; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep 1
 done
@@ -40,4 +40,4 @@ EOF
 RUN chmod +x /app/wait-for-db.sh
 
 # Запуск через Uvicorn с ожиданием БД
-CMD ["./wait-for-db.sh", "postgres", "uvicorn", "terraform_parser:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["./wait-for-db.sh", "postgres", "uvicorn", "terraform_parser:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
