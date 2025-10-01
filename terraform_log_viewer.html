@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terraform Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .upload-section {
+            padding: 30px;
+            background: #f7fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .upload-box {
+            border: 3px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-box:hover {
+            border-color: #5a67d8;
+            background: #edf2f7;
+        }
+
+        .upload-box.dragover {
+            border-color: #5a67d8;
+            background: #e6f0ff;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #f7fafc;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .level-filter {
+            display: flex;
+            gap: 8px;
+        }
+
+        .level-btn {
+            padding: 8px 16px;
+            border: 2px solid #cbd5e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .level-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .level-btn.active {
+            border-color: #5a67d8;
+            background: #5a67d8;
+            color: white;
+        }
+
+        .logs-container {
+            padding: 20px 30px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #cbd5e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .log-entry:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateX(2px);
+        }
+
+        .log-entry.TRACE { border-left-color: #a0aec0; }
+        .log-entry.DEBUG { border-left-color: #4299e1; }
+        .log-entry.INFO { border-left-color: #48bb78; }
+        .log-entry.WARN { border-left-color: #ed8936; }
+        .log-entry.ERROR { border-left-color: #f56565; }
+        .log-entry.FATAL { border-left-color: #c53030; }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .log-timestamp {
+            color: #718096;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .log-level {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .log-level.TRACE { background: #a0aec0; }
+        .log-level.DEBUG { background: #4299e1; }
+        .log-level.INFO { background: #48bb78; }
+        .log-level.WARN { background: #ed8936; }
+        .log-level.ERROR { background: #f56565; }
+        .log-level.FATAL { background: #c53030; }
+
+        .log-section {
+            background: #edf2f7;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #5a67d8;
+        }
+
+        .log-message {
+            color: #2d3748;
+            line-height: 1.6;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .log-metadata {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .metadata-toggle {
+            background: #edf2f7;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #5a67d8;
+            font-weight: 600;
+            margin-right: 8px;
+            transition: all 0.2s;
+        }
+
+        .metadata-toggle:hover {
+            background: #e2e8f0;
+        }
+
+        .metadata-content {
+            display: none;
+            margin-top: 10px;
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .metadata-content.visible {
+            display: block;
+        }
+
+        .json-viewer {
+            white-space: pre-wrap;
+            color: #2d3748;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            padding: 20px 30px;
+            background: #f7fafc;
+            border-top: 2px solid #e2e8f0;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 150px;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #5a67d8;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 30px;
+            color: #a0aec0;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Terraform Log Analyzer</h1>
+            <p>Advanced log parsing with lazy-loading JSON inspection</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-box" id="uploadBox">
+                <input type="file" id="fileInput" accept=".log,.txt,.json" style="display: none;">
+                <p style="font-size: 18px; color: #4a5568; margin-bottom: 10px;">
+                    📁 Drop your Terraform log file here or click to browse
+                </p>
+                <p style="font-size: 14px; color: #718096;">
+                    Supported formats: .log, .txt, .json
+                </p>
+            </div>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <input type="text" class="filter-input" id="searchInput" placeholder="🔎 Search logs...">
+            <div class="level-filter" id="levelFilter"></div>
+        </div>
+
+        <div class="logs-container" id="logsContainer">
+            <div class="empty-state">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p style="font-size: 18px; margin-bottom: 10px;">No logs loaded</p>
+                <p>Upload a Terraform log file to begin analysis</p>
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;"></div>
+    </div>
+
+    <script>
+        let allLogs = [];
+        let filteredLogs = [];
+        let activeLevels = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']);
+
+        const uploadBox = document.getElementById('uploadBox');
+        const fileInput = document.getElementById('fileInput');
+        const logsContainer = document.getElementById('logsContainer');
+        const controls = document.getElementById('controls');
+        const stats = document.getElementById('stats');
+        const searchInput = document.getElementById('searchInput');
+        const levelFilter = document.getElementById('levelFilter');
+
+        // Upload handling
+        uploadBox.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                parseLogs(content);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseLogs(content) {
+            const lines = content.split('\n');
+            allLogs = [];
+            
+            let currentSection = null;
+            
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                
+                try {
+                    const entry = JSON.parse(line);
+                    const logEntry = {
+                        timestamp: entry['@timestamp'] || new Date().toISOString(),
+                        level: (entry['@level'] || 'INFO').toUpperCase(),
+                        message: entry['@message'] || line,
+                        raw: entry,
+                        caller: entry['@caller'],
+                        module: entry['@module'],
+                        tfMetadata: extractTfMetadata(entry),
+                        httpRequest: entry['tf_http_req_body'] ? parseJSON(entry['tf_http_req_body']) : null,
+                        httpResponse: entry['tf_http_res_body'] ? parseJSON(entry['tf_http_res_body']) : null
+                    };
+                    
+                    // Detect sections
+                    if (entry['@message']) {
+                        if (/starting\s+Plan\s+operation/i.test(entry['@message'])) {
+                            currentSection = 'plan';
+                        } else if (/starting\s+Apply\s+operation/i.test(entry['@message'])) {
+                            currentSection = 'apply';
+                        } else if (/running\s+validation/i.test(entry['@message'])) {
+                            currentSection = 'validation';
+                        }
+                    }
+                    
+                    logEntry.section = currentSection;
+                    allLogs.push(logEntry);
+                } catch (e) {
+                    // Non-JSON line, try basic parsing
+                    allLogs.push({
+                        timestamp: new Date().toISOString(),
+                        level: 'INFO',
+                        message: line,
+                        raw: { text: line }
+                    });
+                }
+            });
+            
+            createLevelFilters();
+            filterAndDisplay();
+            updateStats();
+            controls.style.display = 'flex';
+            stats.style.display = 'flex';
+        }
+
+        function extractTfMetadata(entry) {
+            const metadata = {};
+            const keys = ['tf_provider_addr', 'tf_resource_type', 'tf_data_source_type', 
+                         'tf_req_id', 'tf_rpc', 'tf_proto_version'];
+            
+            keys.forEach(key => {
+                if (entry[key]) metadata[key] = entry[key];
+            });
+            
+            return Object.keys(metadata).length > 0 ? metadata : null;
+        }
+
+        function parseJSON(str) {
+            try {
+                return JSON.parse(str);
+            } catch {
+                return { raw: str };
+            }
+        }
+
+        function createLevelFilters() {
+            const levels = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
+            levelFilter.innerHTML = levels.map(level => 
+                `<button class="level-btn active" data-level="${level}">${level}</button>`
+            ).join('');
+            
+            levelFilter.querySelectorAll('.level-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const level = btn.dataset.level;
+                    btn.classList.toggle('active');
+                    
+                    if (activeLevels.has(level)) {
+                        activeLevels.delete(level);
+                    } else {
+                        activeLevels.add(level);
+                    }
+                    
+                    filterAndDisplay();
+                });
+            });
+        }
+
+        searchInput.addEventListener('input', filterAndDisplay);
+
+        function filterAndDisplay() {
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            filteredLogs = allLogs.filter(log => {
+                const matchesLevel = activeLevels.has(log.level);
+                const matchesSearch = !searchTerm || 
+                    log.message.toLowerCase().includes(searchTerm) ||
+                    JSON.stringify(log.raw).toLowerCase().includes(searchTerm);
+                
+                return matchesLevel && matchesSearch;
+            });
+            
+            displayLogs();
+        }
+
+        function displayLogs() {
+            if (filteredLogs.length === 0) {
+                logsContainer.innerHTML = '<div class="empty-state"><p>No logs match your filters</p></div>';
+                return;
+            }
+            
+            logsContainer.innerHTML = filteredLogs.slice(0, 200).map((log, idx) => {
+                const hasMetadata = log.tfMetadata || log.httpRequest || log.httpResponse || log.caller;
+                
+                return `
+                    <div class="log-entry ${log.level}">
+                        <div class="log-header">
+                            <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            ${log.section ? `<span class="log-section">${log.section}</span>` : ''}
+                            ${log.module ? `<span class="log-section">${log.module}</span>` : ''}
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${hasMetadata ? `
+                            <div class="log-metadata">
+                                ${log.tfMetadata ? `<button class="metadata-toggle" onclick="toggleMetadata('tf-${idx}')">🔧 TF Metadata</button>` : ''}
+                                ${log.httpRequest ? `<button class="metadata-toggle" onclick="toggleMetadata('req-${idx}')">📤 HTTP Request</button>` : ''}
+                                ${log.httpResponse ? `<button class="metadata-toggle" onclick="toggleMetadata('res-${idx}')">📥 HTTP Response</button>` : ''}
+                                ${log.caller ? `<button class="metadata-toggle" onclick="toggleMetadata('call-${idx}')">📞 Caller</button>` : ''}
+                                
+                                ${log.tfMetadata ? `<div id="tf-${idx}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.tfMetadata, null, 2)}</pre></div>` : ''}
+                                ${log.httpRequest ? `<div id="req-${idx}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.httpRequest, null, 2)}</pre></div>` : ''}
+                                ${log.httpResponse ? `<div id="res-${idx}" class="metadata-content"><pre class="json-viewer">${JSON.stringify(log.httpResponse, null, 2)}</pre></div>` : ''}
+                                ${log.caller ? `<div id="call-${idx}" class="metadata-content"><pre class="json-viewer">${log.caller}</pre></div>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            if (filteredLogs.length > 200) {
+                logsContainer.innerHTML += `<div style="text-align: center; padding: 20px; color: #718096;">Showing first 200 of ${filteredLogs.length} logs</div>`;
+            }
+        }
+
+        function toggleMetadata(id) {
+            const element = document.getElementById(id);
+            element.classList.toggle('visible');
+        }
+
+        function updateStats() {
+            const levelCounts = {};
+            allLogs.forEach(log => {
+                levelCounts[log.level] = (levelCounts[log.level] || 0) + 1;
+            });
+            
+            const sections = new Set(allLogs.filter(l => l.section).map(l => l.section));
+            
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${allLogs.length}</div>
+                    <div class="stat-label">Total Logs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${levelCounts.ERROR || 0}</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${levelCounts.WARN || 0}</div>
+                    <div class="stat-label">Warnings</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${sections.size}</div>
+                    <div class="stat-label">Sections</div>
+                </div>
+            `;
+        }
+
+        function formatTimestamp(ts) {
+            try {
+                return new Date(ts).toLocaleString();
+            } catch {
+                return ts;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
