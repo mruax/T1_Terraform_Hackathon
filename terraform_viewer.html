@@ -216,6 +216,15 @@
             transition: opacity 0.3s;
         }
 
+        .file-number {
+            font-weight: 700;
+        }
+
+        .sidebar.collapsed .file-full-name {
+            display: none;
+        }
+
+
         .sidebar.collapsed .file-item-name {
             font-size: 10px;
         }
@@ -266,11 +275,19 @@
             display: none;
         }
 
+        .sidebar.collapsed .file-item-name {
+        font-size: 11px;
+        font-weight: 700;
+        text-align: center;
+        }
+
+
         .main-content {
             background: white;
             border-radius: 12px;
             padding: 32px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            min-width: 40%;
         }
 
         .upload-section {
@@ -917,13 +934,15 @@
             overflow: auto;
             flex: 1;
             background: white;
+            min-width: 0; /* Важно для flexbox */
         }
 
         .gantt-grid {
             display: grid;
             grid-template-columns: 250px 1fr;
-            min-width: 100%;
+            min-width: max-content;
         }
+
 
         .gantt-labels {
             background: #f5f5f7;
@@ -959,13 +978,13 @@
             height: 48px;
         }
 
-        .gantt-label-row:nth-child(odd) {
+        /* .gantt-label-row:nth-child(odd) {
             background: #fafafa;
         }
 
         .gantt-label-row:nth-child(even) {
             background: #f0f0f0;
-        }
+        } */
 
         .gantt-label-text {
             flex: 1;
@@ -978,11 +997,13 @@
             height: 2px;
             background: #1d1d1f;
             margin: 8px 0;
+            min-height: 25px;
         }
 
         .gantt-timeline {
             position: relative;
             background: white;
+            min-width: fit-content;
         }
 
         .gantt-timeline-header {
@@ -1078,7 +1099,6 @@
         .gantt-connection-line {
             position: absolute;
             height: 2px;
-            background: #8e8e93;
             top: 24px;
             z-index: 1;
             pointer-events: none;
@@ -1187,6 +1207,7 @@
 
         .sidebar.collapsed .empty-state {
             font-size: 10px;
+            display: none;            
         }
 
         @media (max-width: 1024px) {
@@ -1498,19 +1519,26 @@
                 const stats = item.querySelector('.file-item-stats');
                 
                 if (currentTab === 'gantt') {
-                    // Hide delete button and error/warn badges on Timeline tab
+                    // Gantt: скрыть элементы
                     if (deleteBtn) deleteBtn.style.display = 'none';
                     if (stats) {
                         const badges = stats.querySelectorAll('.stat-badge');
                         badges.forEach(badge => badge.style.display = 'none');
                     }
-                } else {
-                    // Show everything on Logs tab
-                    if (deleteBtn && !sidebarCollapsed) deleteBtn.style.display = 'block';
+                    } else {
+                    // Logs: показать/скрыть кнопку в зависимости от sidebarCollapsed
+                    if (!deleteBtn) {
+                        deleteBtn.style.display = sidebarCollapsed ? 'none' : 'block';
+                    }
+                    
+                    // Бейджи всегда показывать на вкладке Logs
                     if (stats) {
                         const badges = stats.querySelectorAll('.stat-badge');
                         badges.forEach(badge => badge.style.display = 'inline-block');
                     }
+                    }
+                 {
+
                 }
             });
         }
@@ -1620,10 +1648,13 @@
                     return;
                 }
 
-                fileList.innerHTML = files.map(f => `
+                fileList.innerHTML = files.map((f, index) => `
                     <div class="file-item ${f.id === currentFileId ? 'active' : ''}" onclick="selectLogFile(${f.id})">
                         <button class="delete-btn" onclick="deleteLogFile(${f.id}, event)">×</button>
-                        <div class="file-item-name" title="${f.filename}">${f.filename}</div>
+                        <div class="file-item-name" title="${f.filename}">
+                            <span class="file-number">#${index + 1}</span>
+                            <span class="file-full-name">${f.filename}</span>
+                        </div>
                         <div class="file-item-stats">
                             <span>${f.total_entries} logs</span>
                             ${f.error_count > 0 ? `<span class="stat-badge error">${f.error_count} E</span>` : ''}
@@ -2183,20 +2214,33 @@
 
             // Render with dividers between swimlanes
             let isFirstInLane = true;
-            Object.keys(swimlaneGroups).sort((a, b) => parseInt(a) - parseInt(b)).forEach(lane => {
+            Object.keys(swimlaneGroups).sort((a, b) => parseInt(a) - parseInt(b)).forEach((lane, laneIndex) => {
                 const laneRequests = swimlaneGroups[lane];
+                const laneColor = swimlaneColors[laneIndex % swimlaneColors.length];
+                const swimlaneName = `Parallel Process ${parseInt(lane) + 1}`;
+
+                // Add swimlane header row
+                labelsHTML += `
+                    <div class="gantt-label-row gantt-swimlane-header" style="background: #505052; color: white; height: 32px; min-height: 32px;">
+                        <span style="font-weight: 700;">#${parseInt(lane) + 1}</span>
+                        <span style="font-weight: 700;">${swimlaneName}</span>
+                    </div>
+                `;
                 
-                // Add divider before each swimlane (except first)
-                if (!isFirstInLane) {
-                    labelsHTML += '<div class="gantt-swimlane-divider"></div>';
-                }
+                timelineRowsHTML += `
+                    <div class="gantt-timeline-row gantt-swimlane-header" style="background: #505052; height: 32px; min-height: 32px;"></div>
+                `;
+
+
                 isFirstInLane = false;
                 
                 laneRequests.forEach((req, indexInLane) => {
                     const rpcLabel = req.rpc || 'unknown';
+                    const rowBg = indexInLane % 2 === 0 ? '#fafafa' : '#f5f5f7';
                     
                     labelsHTML += `
-                        <div class="gantt-label-row">
+                        <div class="gantt-label-row" style="background: ${rowBg} !important;">
+
                             <div class="gantt-label-text" title="${req.req_id} - ${rpcLabel}">
                                 ${rpcLabel}
                             </div>
@@ -2219,15 +2263,33 @@
                     if (indexInLane < laneRequests.length - 1) {
                         const nextReq = laneRequests[indexInLane + 1];
                         const nextStart = new Date(nextReq.start_time);
+                        
+                        // Вычисляем расстояние в пикселях
                         const connectionLeft = ((reqEnd - startTime) / durationMs) * 100;
                         const connectionWidth = ((nextStart - reqEnd) / durationMs) * 100;
                         
-                        if (connectionWidth > 0) {
+                        // Примерная ширина контейнера для проверки 10px
+                        const approxContainerWidth = 1500; // примерное значение в px
+                        const connectionWidthPx = (connectionWidth / 100) * approxContainerWidth * ganttZoom;
+                        
+                        // Рисуем линию только если расстояние >= 10px
+                        if (connectionWidth > 0 && connectionWidthPx >= 10) {
+                            // Определяем цвет линии на основе статуса текущего запроса
+                            const connectionColor = req.status === 'success' ? '#34c759' :
+                                                req.status === 'error' ? '#ff3b30' :
+                                                req.status === 'timeout' ? '#ff9500' :
+                                                req.status === 'running' ? '#007aff' : '#8e8e93';
+                            
                             connectionLineHTML = `
-                                <div class="gantt-connection-line" style="left: ${connectionLeft}%; width: ${connectionWidth}%;"></div>
+                                <div class="gantt-connection-line" style="
+                                    left: ${connectionLeft}%; 
+                                    width: ${connectionWidth}%;
+                                    background: ${connectionColor};
+                                "></div>
                             `;
                         }
                     }
+
 
                     timelineRowsHTML += `
                         <div class="gantt-timeline-row">
@@ -2241,7 +2303,7 @@
                                  onmouseleave="hideGanttTooltip()"
                                  onclick="showGanttDetail(${JSON.stringify(req).replace(/"/g, '&quot;')})">
                                 ${showText ? `<span class="gantt-bar-label">${rpcLabel}</span>` : ''}
-                                ${showText ? `<span class="gantt-bar-duration">${req.duration.toFixed(2)}s</span>` : ''}
+                                ${showText ? `<span class="gantt-bar-duration">${req.duration}s</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -2292,7 +2354,7 @@
                         </tr>
                         <tr style="border-bottom: 1px solid #e5e5e7;">
                             <td style="padding: 8px 0; color: #6e6e73;">Duration:</td>
-                            <td style="padding: 8px 0; font-weight: 600;">${request.duration.toFixed(2)}s</td>
+                            <td style="padding: 8px 0; font-weight: 600;">${request.duration}s</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #e5e5e7;">
                             <td style="padding: 8px 0; color: #6e6e73;">Start:</td>
@@ -2339,8 +2401,9 @@
                 </div>
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Duration:</span>
-                    <span>${request.duration.toFixed(2)}s</span>
+                    <span>${request.duration}s</span>
                 </div>
+
                 <div class="gantt-tooltip-row">
                     <span class="gantt-tooltip-label">Logs:</span>
                     <span>${request.log_count}</span>
