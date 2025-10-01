@@ -9,6 +9,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 import asyncpg
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +17,107 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ==================== CONFIG LOADER ====================
+
+class PluginConfigLoader:
+    """Load plugin configurations from JSON file"""
+    
+    def __init__(self, config_path: str = "plugin_config.json"):
+        self.config_path = Path(config_path)
+        self.configs = {}
+        self.load_configs()
+    
+    def load_configs(self):
+        """Load all configurations from JSON file"""
+        if not self.config_path.exists():
+            logger.warning(f"Config file not found: {self.config_path}, using defaults")
+            self.configs = self._get_default_config()
+            return
+        
+        try:
+            with open(self.config_path, 'r') as f:
+                self.configs = json.load(f)
+            logger.info(f"Loaded configurations: {list(self.configs.keys())}")
+        except Exception as e:
+            logger.error(f"Error loading config: {e}")
+            self.configs = self._get_default_config()
+    
+    def _get_default_config(self) -> Dict:
+        """Get default configuration if file not found"""
+        return {
+            "default": {
+                "SensitiveDataPlugin": {
+                    "enabled": True,
+                    "redact_value": "[REDACTED]",
+                    "keep_prefix": 4
+                },
+                "LogLevelFilterPlugin": {
+                    "enabled": True,
+                    "min_level": "TRACE"
+                },
+                "NoiseFilterPlugin": {
+                    "enabled": False,
+                    "use_defaults": True,
+                    "deduplicate": False,
+                    "max_repeats": 3
+                },
+                "HTTPBodyCompressionPlugin": {
+                    "enabled": False,
+                    "max_size": 1000
+                }
+            }
+        }
+    
+    def get_config(self, profile: str = "default") -> Dict:
+        """Get configuration for specific profile"""
+        return self.configs.get(profile, self.configs.get("default", {}))
+    
+    def create_plugins_from_config(self, profile: str = "default") -> List:
+        """Create plugin instances from configuration"""
+        config = self.get_config(profile)
+        plugins = []
+        
+        for plugin_name, plugin_config in config.items():
+            if not plugin_config.get("enabled", False):
+                continue
+            
+            try:
+                if plugin_name == "SensitiveDataPlugin":
+                    plugins.append(SensitiveDataPlugin(
+                        redact_value=plugin_config.get("redact_value", "[REDACTED]"),
+                        keep_prefix=plugin_config.get("keep_prefix", 4)
+                    ))
+                elif plugin_name == "FieldFilterPlugin":
+                    plugins.append(FieldFilterPlugin(
+                        exclude_fields=plugin_config.get("exclude_fields"),
+                        include_fields=plugin_config.get("include_fields")
+                    ))
+                elif plugin_name == "LogLevelFilterPlugin":
+                    level_str = plugin_config.get("min_level", "TRACE")
+                    plugins.append(LogLevelFilterPlugin(
+                        min_level=LogLevel[level_str]
+                    ))
+                elif plugin_name == "NoiseFilterPlugin":
+                    plugins.append(NoiseFilterPlugin(
+                        noise_patterns=plugin_config.get("noise_patterns"),
+                        use_defaults=plugin_config.get("use_defaults", True),
+                        deduplicate=plugin_config.get("deduplicate", False),
+                        max_repeats=plugin_config.get("max_repeats", 3)
+                    ))
+                elif plugin_name == "HTTPBodyCompressionPlugin":
+                    plugins.append(HTTPBodyCompressionPlugin(
+                        max_size=plugin_config.get("max_size", 1000),
+                        max_items_preview=plugin_config.get("max_items_preview", 3),
+                        max_depth=plugin_config.get("max_depth", 3)
+                    ))
+                
+                logger.info(f"Created plugin: {plugin_name}")
+            except Exception as e:
+                logger.error(f"Error creating plugin {plugin_name}: {e}")
+        
+        return plugins
+
 
 # ==================== ENHANCED LOG LEVEL & TIMESTAMP EXTRACTION ====================
 
@@ -69,12 +171,14 @@ class SensitiveDataPlugin(LogPlugin):
     TOKEN_PATTERN = re.compile(r'(?:bearer\s+|token[\s:=]+)[a-zA-Z0-9_\-\.]+', re.I)
     KEY_PATTERN = re.compile(r'(?:api[_\-]?key[\s:=]+)[a-zA-Z0-9_\-]+', re.I)
     
-    def __init__(self, redact_value: str = "[REDACTED]"):
+    def __init__(self, redact_value: str = "[REDACTED]", keep_prefix: int = 4):
         self.redact_value = redact_value
+        self.keep_prefix = keep_prefix
     
     def _redact_value(self, value: Any) -> Any:
         if isinstance(value, str) and len(value) > 10:
-            return f"{value[:4]}...{self.redact_value}"
+            if self.keep_prefix > 0:
+                return f"{value[:self.keep_prefix]}...{self.redact_value}"
         return self.redact_value
     
     def _sanitize_string(self, text: str) -> str:
@@ -108,7 +212,6 @@ class SensitiveDataPlugin(LogPlugin):
     
     def process_json(self, json_obj: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(json_obj, dict):
-            logger.warning(f"SensitiveDataPlugin received non-dict json_obj: {type(json_obj)}")
             return json_obj
         return self._sanitize_dict(json_obj)
     
@@ -163,30 +266,100 @@ class LogLevelFilterPlugin(LogPlugin):
 class NoiseFilterPlugin(LogPlugin):
     """Filter out noisy/repetitive log messages"""
     
-    def __init__(self, noise_patterns: List[str] = None):
+    def __init__(
+        self, 
+        noise_patterns: List[str] = None,
+        use_defaults: bool = True,
+        deduplicate: bool = False,
+        max_repeats: int = 3
+    ):
         default_patterns = [
             r'Schema\s+for\s+provider.*is\s+in\s+the\s+global\s+cache',
             r'Checking\s+.*\s+lock',
             r'ignoring\s+non-existing\s+provider',
         ]
-        patterns = noise_patterns or default_patterns
+        
+        patterns = []
+        if use_defaults:
+            patterns.extend(default_patterns)
+        if noise_patterns:
+            patterns.extend(noise_patterns)
+            
         self.noise_regexes = [re.compile(p, re.I) for p in patterns]
+        self.deduplicate = deduplicate
+        self.max_repeats = max_repeats
+        self.message_counts = {}
+    
+    def _is_noisy(self, message: str) -> bool:
+        for pattern in self.noise_regexes:
+            if pattern.search(message):
+                return True
+        return False
+    
+    def _is_duplicate(self, message: str) -> bool:
+        if not self.deduplicate:
+            return False
+        
+        normalized = re.sub(r'\d+', 'N', message)
+        normalized = re.sub(r'/[^\s]+', '/PATH', normalized)
+        
+        count = self.message_counts.get(normalized, 0)
+        self.message_counts[normalized] = count + 1
+        
+        return count >= self.max_repeats
     
     def process_json(self, json_obj: Dict[str, Any]) -> Dict[str, Any]:
         return json_obj
     
     def process_entry(self, entry: LogEntry) -> Optional[LogEntry]:
-        for pattern in self.noise_regexes:
-            if pattern.search(entry.message):
-                return None
+        if self._is_noisy(entry.message):
+            return None
+        if self._is_duplicate(entry.message):
+            return None
         return entry
 
 
 class HTTPBodyCompressionPlugin(LogPlugin):
     """Compress large HTTP bodies by summarizing"""
     
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000, max_items_preview: int = 3, max_depth: int = 3):
         self.max_size = max_size
+        self.max_items_preview = max_items_preview
+        self.max_depth = max_depth
+    
+    def _get_structure_info(self, obj: Any, depth: int = 0) -> Any:
+        if depth > self.max_depth:
+            return "[Too Deep]"
+        
+        if isinstance(obj, dict):
+            result = {}
+            for i, (key, value) in enumerate(obj.items()):
+                if i >= self.max_items_preview:
+                    result["..."] = f"+ {len(obj) - i} more keys"
+                    break
+                result[key] = self._get_structure_info(value, depth + 1)
+            return result
+        
+        elif isinstance(obj, list):
+            if len(obj) == 0:
+                return []
+            
+            result = []
+            for i in range(min(len(obj), self.max_items_preview)):
+                result.append(self._get_structure_info(obj[i], depth + 1))
+            
+            if len(obj) > self.max_items_preview:
+                result.append(f"... + {len(obj) - self.max_items_preview} more items")
+            
+            return result
+        
+        elif isinstance(obj, str):
+            if len(obj) > 50:
+                return f"{obj[:50]}... (length: {len(obj)})"
+            return obj
+        
+        else:
+            return obj
     
     def _compress_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
         body_str = json.dumps(body)
@@ -195,17 +368,8 @@ class HTTPBodyCompressionPlugin(LogPlugin):
             compressed = {
                 "_compressed": True,
                 "_original_size": len(body_str),
-                "_summary": {}
+                "_summary": self._get_structure_info(body)
             }
-            
-            for key, value in list(body.items())[:5]:
-                if isinstance(value, list) and len(value) > 3:
-                    compressed["_summary"][key] = f"[Array with {len(value)} items]"
-                elif isinstance(value, dict):
-                    compressed["_summary"][key] = f"{{Object with {len(value)} keys}}"
-                else:
-                    compressed["_summary"][key] = value
-            
             return compressed
         
         return body
@@ -482,17 +646,14 @@ class DatabaseManager:
                 entry_count = 0
                 for i, entry in enumerate(entries):
                     try:
-                        # Ensure timestamp is a datetime object and convert to naive UTC
                         if isinstance(entry.timestamp, str):
                             ts = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
                         else:
                             ts = entry.timestamp
                         
-                        # Convert timezone-aware to naive UTC for PostgreSQL TIMESTAMP
                         if ts.tzinfo is not None:
                             ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
                         
-                        # Convert raw_json to JSON string
                         raw_json_str = json.dumps(entry.raw_json) if entry.raw_json else None
                         
                         await conn.execute('''
@@ -509,8 +670,7 @@ class DatabaseManager:
                             
                     except Exception as entry_error:
                         logger.error(f"Error saving entry {i}: {str(entry_error)}")
-                        logger.error(f"Entry data: timestamp={entry.timestamp}, level={entry.level.name}, message_len={len(entry.message)}")
-                        if i < 3:  # Log first 3 problematic entries in detail
+                        if i < 3:
                             logger.error(f"Full entry: {entry}")
                         raise
                 
@@ -555,6 +715,9 @@ from pydantic import BaseModel
 from typing import List
 import io
 
+# Initialize config loader
+config_loader = PluginConfigLoader()
+
 db_manager = DatabaseManager("postgresql://terraform:terraform@postgres:5432/terraform_logs")
 
 @asynccontextmanager
@@ -565,8 +728,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Terraform Log Processor API",
-    description="Advanced Terraform log analysis with plugins, monitoring integration, and Gantt visualization",
-    version="2.0.0",
+    description="Advanced Terraform log analysis with JSON-configured plugins",
+    version="2.2.0",
     lifespan=lifespan
 )
 
@@ -605,52 +768,36 @@ class HealthStatus(BaseModel):
     total_warnings: int
     recent_files: int
 
+@app.get("/api/v1/configs", tags=["Configuration"])
+async def get_available_configs():
+    """Get list of available plugin configurations"""
+    return {
+        "profiles": list(config_loader.configs.keys()),
+        "configs": config_loader.configs
+    }
+
 @app.post("/upload-log/", tags=["Logs"])
 async def upload_log(
     file: UploadFile = File(...),
-    redact_sensitive: bool = Query(True, description="Remove sensitive data"),
-    min_level: str = Query("TRACE", description="Minimum log level"),
-    remove_noise: bool = Query(False, description="Filter noisy logs"),
-    compress_bodies: bool = Query(False, description="Compress HTTP bodies"),
-    exclude_fields: Optional[str] = Query(None, description="Comma-separated fields to exclude"),
-    include_fields: Optional[str] = Query(None, description="Comma-separated fields to include (whitelist)")
+    config: str = Query("default", description="Plugin configuration profile (only parameter, all settings via JSON)")
 ):
-    """Upload and parse Terraform log file with configurable plugins"""
-    logger.info(f"Received file upload: {file.filename}")
+    """
+    Upload and parse Terraform log file
+    
+    All plugin settings are configured via plugin_config.json
+    Use 'config' parameter to select profile: default, production, or debug
+    """
+    logger.info(f"Received file upload: {file.filename} with config profile: {config}")
     
     if not file.filename.endswith(('.log', '.txt', '.json')):
         raise HTTPException(status_code=400, detail="Invalid file type")
     
     try:
-        plugins = []
-        
-        if redact_sensitive:
-            plugins.append(SensitiveDataPlugin())
-            logger.debug("Added SensitiveDataPlugin")
-        
-        if exclude_fields or include_fields:
-            exclude_list = exclude_fields.split(',') if exclude_fields else None
-            include_list = include_fields.split(',') if include_fields else None
-            plugins.append(FieldFilterPlugin(exclude_fields=exclude_list, include_fields=include_list))
-            logger.debug(f"Added FieldFilterPlugin: exclude={exclude_list}, include={include_list}")
-        
-        try:
-            level_enum = LogLevel[min_level.upper()]
-            plugins.append(LogLevelFilterPlugin(level_enum))
-            logger.debug(f"Added LogLevelFilterPlugin: {level_enum}")
-        except KeyError:
-            logger.warning(f"Invalid log level: {min_level}")
-        
-        if remove_noise:
-            plugins.append(NoiseFilterPlugin())
-            logger.debug("Added NoiseFilterPlugin")
-        
-        if compress_bodies:
-            plugins.append(HTTPBodyCompressionPlugin())
-            logger.debug("Added HTTPBodyCompressionPlugin")
+        # Load plugins from configuration
+        plugins = config_loader.create_plugins_from_config(config)
         
         parser = TerraformLogParser(plugins=plugins)
-        logger.info("Parser initialized with plugins")
+        logger.info(f"Parser initialized with {len(plugins)} plugins from '{config}' profile")
         
         # Read file content
         content = await file.read()
@@ -669,7 +816,7 @@ async def upload_log(
                     entries.append(entry)
             except Exception as e:
                 parse_errors += 1
-                if parse_errors <= 5:  # Log first 5 errors
+                if parse_errors <= 5:
                     logger.error(f"Error parsing line {i}: {str(e)}\nLine: {line[:100]}")
         
         logger.info(f"Parsed {len(entries)} entries, {parse_errors} errors")
@@ -722,6 +869,7 @@ async def upload_log(
             "sections_detected": list(set(e.section_type for e in entries if e.section_type)),
             "linked_pairs": len(req_resp_map),
             "plugins_applied": [type(p).__name__ for p in plugins],
+            "config_profile": config,
             "parse_errors": parse_errors
         }
     
@@ -838,11 +986,12 @@ async def get_metrics():
 
 @app.get("/api/v1/gantt/{file_id}", tags=["Visualization"])
 async def get_gantt_data(file_id: int):
-    """Get Gantt chart data for Terraform operations timeline"""
+    """Get detailed Gantt chart data with microsecond-level operations"""
     entries = await db_manager.get_log_entries(file_id)
     if not entries:
         raise HTTPException(status_code=404, detail="Log file not found")
     
+    # Group by sections with all logs
     sections = {}
     current_section = None
     section_start = None
@@ -860,14 +1009,15 @@ async def get_gantt_data(file_id: int):
                     'name': current_section,
                     'start': section_start,
                     'end': None,
-                    'logs': []
+                    'operations': []
                 }
         
         if current_section:
-            sections[current_section]['logs'].append({
+            sections[current_section]['operations'].append({
                 'timestamp': entry['timestamp'].isoformat(),
                 'level': entry['level'],
-                'message': entry['message']
+                'message': entry['message'],
+                'req_id': entry['req_id']
             })
     
     if current_section and section_start and sections[current_section]['end'] is None:
@@ -877,12 +1027,39 @@ async def get_gantt_data(file_id: int):
     for section_name, section_data in sections.items():
         if section_data['end']:
             duration = (section_data['end'] - section_data['start']).total_seconds()
+            
+            # Group operations by req_id for sub-operations
+            operations_by_req = {}
+            for op in section_data['operations']:
+                req_id = op.get('req_id', 'general')
+                if req_id not in operations_by_req:
+                    operations_by_req[req_id] = []
+                operations_by_req[req_id].append(op)
+            
+            # Create sub-operations
+            sub_operations = []
+            for req_id, ops in operations_by_req.items():
+                if len(ops) > 1:
+                    op_start = datetime.fromisoformat(ops[0]['timestamp'])
+                    op_end = datetime.fromisoformat(ops[-1]['timestamp'])
+                    op_duration = (op_end - op_start).total_seconds()
+                    
+                    sub_operations.append({
+                        'id': req_id,
+                        'start': ops[0]['timestamp'],
+                        'end': ops[-1]['timestamp'],
+                        'duration': op_duration,
+                        'log_count': len(ops),
+                        'logs': ops
+                    })
+            
             gantt_data.append({
                 'task': section_name,
                 'start': section_data['start'].isoformat(),
                 'end': section_data['end'].isoformat(),
                 'duration': duration,
-                'log_count': len(section_data['logs'])
+                'log_count': len(section_data['operations']),
+                'sub_operations': sub_operations
             })
     
     return {

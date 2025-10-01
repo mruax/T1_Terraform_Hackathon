@@ -1,0 +1,89 @@
+{
+  "default": {
+    "SensitiveDataPlugin": {
+      "enabled": true,
+      "redact_value": "[REDACTED]",
+      "keep_prefix": 4
+    },
+    "FieldFilterPlugin": {
+      "enabled": false,
+      "exclude_fields": ["@caller", "internal_id"],
+      "include_fields": null
+    },
+    "LogLevelFilterPlugin": {
+      "enabled": true,
+      "min_level": "TRACE"
+    },
+    "NoiseFilterPlugin": {
+      "enabled": false,
+      "use_defaults": true,
+      "deduplicate": false,
+      "max_repeats": 3,
+      "noise_patterns": []
+    },
+    "HTTPBodyCompressionPlugin": {
+      "enabled": false,
+      "max_size": 1000,
+      "max_items_preview": 3,
+      "max_depth": 3
+    }
+  },
+  "production": {
+    "SensitiveDataPlugin": {
+      "enabled": true,
+      "redact_value": "[HIDDEN]",
+      "keep_prefix": 0
+    },
+    "FieldFilterPlugin": {
+      "enabled": true,
+      "exclude_fields": null,
+      "include_fields": ["@message", "@level", "@timestamp", "tf_req_id", "tf_rpc"]
+    },
+    "LogLevelFilterPlugin": {
+      "enabled": true,
+      "min_level": "INFO"
+    },
+    "NoiseFilterPlugin": {
+      "enabled": true,
+      "use_defaults": true,
+      "deduplicate": true,
+      "max_repeats": 2,
+      "noise_patterns": []
+    },
+    "HTTPBodyCompressionPlugin": {
+      "enabled": true,
+      "max_size": 500,
+      "max_items_preview": 2,
+      "max_depth": 2
+    }
+  },
+  "debug": {
+    "SensitiveDataPlugin": {
+      "enabled": true,
+      "redact_value": "***",
+      "keep_prefix": 8
+    },
+    "FieldFilterPlugin": {
+      "enabled": false,
+      "exclude_fields": [],
+      "include_fields": null
+    },
+    "LogLevelFilterPlugin": {
+      "enabled": true,
+      "min_level": "TRACE"
+    },
+    "NoiseFilterPlugin": {
+      "enabled": false,
+      "use_defaults": false,
+      "deduplicate": false,
+      "max_repeats": 100,
+      "noise_patterns": []
+    },
+    "HTTPBodyCompressionPlugin": {
+      "enabled": false,
+      "max_size": 10000,
+      "max_items_preview": 10,
+      "max_depth": 10
+    }
+  }
+}
