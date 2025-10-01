@@ -563,7 +563,7 @@ async def upload_log(
 
 @app.get("/")
 async def root():
-    return FileResponse("terraform_log_viewer_super.html")
+    return FileResponse("terraform_viewer.html")
 
 
 if __name__ == "__main__":
