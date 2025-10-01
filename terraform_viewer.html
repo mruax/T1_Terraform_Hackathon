@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terraform Log Viewer 2.3</title>
+    <title>Terraform Log Viewer 2.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -384,12 +384,25 @@
             color: #6e6e73;
         }
 
+        .page-jumper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-jumper input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #d2d2d7;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
         .logs-container {
             max-height: 700px;
             overflow-y: auto;
         }
 
-        /* Section grouping - FIXED */
         .section-group {
             margin-bottom: 32px;
             border: 2px solid #e5e5e7;
@@ -469,6 +482,15 @@
             opacity: 0.6;
         }
 
+        .log-entry.highlighted {
+            animation: highlight-pulse 1.5s ease-in-out;
+        }
+
+        @keyframes highlight-pulse {
+            0%, 100% { background: white; }
+            50% { background: #fff3cd; }
+        }
+
         .log-entry:hover {
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
@@ -484,7 +506,6 @@
             border-right: 4px solid #5856d6;
         }
 
-        /* FIXED: Entry actions in one row */
         .entry-actions {
             position: absolute;
             top: 16px;
@@ -538,7 +559,6 @@
             flex-wrap: wrap;
         }
 
-        /* FIXED: Full timestamp with milliseconds */
         .log-timestamp {
             color: #6e6e73;
             font-size: 12px;
@@ -559,6 +579,102 @@
         .log-level.WARN { background: #ff9500; color: white; }
         .log-level.ERROR { background: #ff3b30; color: white; }
         .log-level.FATAL { background: #d70015; color: white; }
+
+        /* Chain Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6e6e73;
+        }
+
+        .modal-close:hover {
+            color: #1d1d1f;
+        }
+
+        .chain-log-item {
+            background: #fafafa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chain-log-item:hover {
+            background: #f5f5f7;
+            transform: translateX(4px);
+        }
+
+        .chain-log-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .chain-log-number {
+            background: #007aff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .chain-log-timestamp {
+            font-size: 11px;
+            color: #6e6e73;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .chain-log-message {
+            font-size: 13px;
+            color: #1d1d1f;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         /* Gantt Chart */
         .gantt-container {
@@ -687,6 +803,14 @@
             min-height: 36px;
         }
 
+        .gantt-task-row.operation {
+            padding-left: 48px;
+            font-size: 11px;
+            font-weight: 400;
+            background: white;
+            min-height: 28px;
+        }
+
         .gantt-task-label {
             display: flex;
             align-items: center;
@@ -760,6 +884,10 @@
             min-height: 36px;
         }
 
+        .gantt-timeline-row.op-row {
+            min-height: 28px;
+        }
+
         .gantt-timeline-grid {
             position: absolute;
             top: 0;
@@ -808,6 +936,11 @@
             opacity: 0.7;
             height: 20px;
             top: 8px;
+        }
+        .gantt-bar.op {
+            opacity: 0.5;
+            height: 14px;
+            top: 7px;
         }
 
         .gantt-tooltip {
@@ -877,7 +1010,7 @@
     <div class="container">
         <div class="header">
             <a href="/docs" class="api-docs-btn" target="_blank">📚 API Docs</a>
-            <h1>Terraform Log Viewer 2.3</h1>
+            <h1>Terraform Log Viewer 2.4</h1>
             <p>Advanced Log Analysis & Visualization</p>
         </div>
 
@@ -915,6 +1048,7 @@
                         </div>
                         <button class="action-btn" onclick="toggleAdvancedSearch()">🔍 Advanced Search</button>
                         <button class="action-btn" id="hideReadToggle" onclick="toggleHideRead()">👁️ Hide Read</button>
+                        <button class="action-btn" id="chainFilterToggle" onclick="toggleChainFilter()">🔗 All Chains</button>
                         <div class="level-filters" id="levelFilters"></div>
                     </div>
 
@@ -975,6 +1109,11 @@
                         <button onclick="changePage(-1)" id="prevBtn">← Previous</button>
                         <span class="page-info" id="pageInfo">Page 1 of 1</span>
                         <button onclick="changePage(1)" id="nextBtn">Next →</button>
+                        <div class="page-jumper">
+                            <span style="font-size: 13px; color: #6e6e73;">Go to:</span>
+                            <input type="number" id="pageJumpInput" min="1" placeholder="Page">
+                            <button onclick="jumpToPage()" style="padding: 4px 12px; font-size: 12px;">Go</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1024,10 +1163,22 @@
         </div>
     </div>
 
+    <!-- Chain Modal -->
+    <div class="modal" id="chainModal" onclick="closeChainModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Request Chain Details</h3>
+                <button class="modal-close" onclick="closeChainModal()">×</button>
+            </div>
+            <div id="chainModalContent"></div>
+        </div>
+    </div>
+
     <script>
         let allLogs = [];
         let filteredLogs = [];
         let activeLevels = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']);
+        let chainFilter = 'all'; // 'all', 'with_chain', 'no_chain'
         let hideRead = false;
         let readLogs = new Set(JSON.parse(localStorage.getItem('readLogs') || '[]'));
         let currentFileId = null;
@@ -1036,9 +1187,11 @@
         let ganttZoom = 1;
         let ganttData = null;
         let expandedTasks = new Set();
+        let expandedSubTasks = new Set();
         let collapsedSections = new Set();
         let metricsChart = null;
         let requestChains = {};
+        let sectionNumbers = {}; // Global section numbers
 
         const API_BASE = '';
 
@@ -1161,6 +1314,19 @@
 
                 requestChains = data.request_chains || {};
 
+                // Calculate global section numbers
+                sectionNumbers = {};
+                let sectionCounter = 1;
+                const seenSections = new Set();
+                
+                allLogs.forEach(log => {
+                    const section = log.section_type || 'general';
+                    if (!seenSections.has(section)) {
+                        seenSections.add(section);
+                        sectionNumbers[section] = sectionCounter++;
+                    }
+                });
+
                 createLevelFilters();
                 filterAndDisplay();
                 document.getElementById('controls').style.display = 'flex';
@@ -1226,6 +1392,25 @@
             filterAndDisplay();
         }
 
+        function toggleChainFilter() {
+            const states = ['all', 'with_chain', 'no_chain'];
+            const labels = {
+                'all': '🔗 All Chains',
+                'with_chain': '🔗 With Chain',
+                'no_chain': '🔗 No Chain'
+            };
+            
+            const currentIndex = states.indexOf(chainFilter);
+            chainFilter = states[(currentIndex + 1) % states.length];
+            
+            const btn = document.getElementById('chainFilterToggle');
+            btn.textContent = labels[chainFilter];
+            btn.classList.toggle('active', chainFilter !== 'all');
+            
+            currentPage = 1;
+            filterAndDisplay();
+        }
+
         function toggleAdvancedSearch() {
             const search = document.getElementById('advancedSearch');
             search.classList.toggle('visible');
@@ -1254,6 +1439,22 @@
             filterAndDisplay();
         }
 
+        function jumpToPage() {
+            const pageInput = document.getElementById('pageJumpInput');
+            const targetPage = parseInt(pageInput.value);
+            const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
+            
+            if (targetPage && targetPage >= 1 && targetPage <= totalPages) {
+                currentPage = targetPage;
+                displayLogs();
+                document.getElementById('logsContainer').scrollTop = 0;
+            } else {
+                alert(`Please enter a page number between 1 and ${totalPages}`);
+            }
+            
+            pageInput.value = '';
+        }
+
         document.getElementById('searchInput').addEventListener('input', () => {
             currentPage = 1;
             filterAndDisplay();
@@ -1271,6 +1472,14 @@
                 const matchesLevel = activeLevels.has(log.level);
                 const matchesSearch = !searchTerm || log.message.toLowerCase().includes(searchTerm);
                 const matchesRead = !hideRead || !readLogs.has(log.originalIndex);
+                
+                // Chain filter
+                let matchesChain = true;
+                if (chainFilter === 'with_chain') {
+                    matchesChain = log.req_id && requestChains[log.req_id];
+                } else if (chainFilter === 'no_chain') {
+                    matchesChain = !log.req_id || !requestChains[log.req_id];
+                }
                 
                 let matchesProvider = true;
                 if (provider) {
@@ -1294,14 +1503,13 @@
                     if (dateTo && matchesDate) matchesDate = logDate <= new Date(dateTo);
                 }
                 
-                return matchesLevel && matchesSearch && matchesRead && 
+                return matchesLevel && matchesSearch && matchesRead && matchesChain &&
                        matchesProvider && matchesResource && matchesSection && matchesDate;
             });
             
             displayLogs();
         }
 
-        // FIXED: Toggle section collapse
         function toggleSectionCollapse(sectionName) {
             if (collapsedSections.has(sectionName)) {
                 collapsedSections.delete(sectionName);
@@ -1311,21 +1519,77 @@
             displayLogs();
         }
 
-        // FIXED: Show chain details
         function showChainDetails(reqId) {
             if (!requestChains[reqId]) return;
             
-            const chainIndices = requestChains[reqId].indices || requestChains[reqId];
+            const chainIndices = requestChains[reqId];
             const chainLogs = chainIndices.map(idx => allLogs[idx]).filter(l => l);
             
             if (chainLogs.length === 0) return;
             
-            let message = `Request Chain: ${reqId}\n\nTotal logs: ${chainLogs.length}\n\n`;
+            let html = `<p style="margin-bottom: 16px; color: #6e6e73; font-size: 14px;">Request ID: <strong>${reqId}</strong> · ${chainLogs.length} logs</p>`;
+            
             chainLogs.forEach((log, i) => {
-                message += `${i + 1}. [${log.level}] ${formatTimestamp(log.timestamp)}\n   ${log.message.substring(0, 100)}...\n\n`;
+                // Find which section this log belongs to
+                const section = log.section_type || 'general';
+                const sectionNum = sectionNumbers[section] || 0;
+                
+                // Calculate which page this log would be on
+                const logPageNumber = Math.floor(filteredLogs.indexOf(log) / logsPerPage) + 1;
+                
+                html += `
+                    <div class="chain-log-item" onclick="navigateToLog(${log.originalIndex}, '${section}', ${logPageNumber})">
+                        <div class="chain-log-header">
+                            <span class="chain-log-number">#${i + 1}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            <span class="chain-log-timestamp">${formatTimestampFull(log.timestamp)}</span>
+                            <span style="font-size: 11px; color: #6e6e73;">→ Section №${sectionNum} · Page ${logPageNumber || '?'}</span>
+                        </div>
+                        <div class="chain-log-message">${escapeHtml(log.message)}</div>
+                    </div>
+                `;
             });
             
-            alert(message);
+            document.getElementById('chainModalContent').innerHTML = html;
+            document.getElementById('chainModal').classList.add('visible');
+        }
+
+        function navigateToLog(originalIndex, sectionName, pageNumber) {
+            closeChainModal();
+            
+            // Switch to logs tab if not already there
+            const logsTab = document.querySelector('.tab');
+            if (!logsTab.classList.contains('active')) {
+                logsTab.click();
+            }
+            
+            // Go to the right page
+            if (pageNumber && pageNumber >= 1) {
+                currentPage = pageNumber;
+                displayLogs();
+            }
+            
+            // Expand the section if collapsed
+            if (collapsedSections.has(sectionName)) {
+                collapsedSections.delete(sectionName);
+                displayLogs();
+            }
+            
+            // Scroll to and highlight the log
+            setTimeout(() => {
+                const logElement = document.getElementById(`log-${originalIndex}`);
+                if (logElement) {
+                    logElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    logElement.classList.add('highlighted');
+                    setTimeout(() => logElement.classList.remove('highlighted'), 1500);
+                }
+            }, 300);
+        }
+
+        function closeChainModal(event) {
+            if (!event || event.target.id === 'chainModal') {
+                document.getElementById('chainModal').classList.remove('visible');
+            }
         }
 
         function displayLogs() {
@@ -1341,17 +1605,8 @@
             const endIdx = startIdx + logsPerPage;
             const pageLog = filteredLogs.slice(startIdx, endIdx);
             
-            // FIXED: Group by sections and count ALL logs in section, not just on page
+            // Group current page logs by section
             const sections = {};
-            const sectionCounts = {};
-            
-            // First pass: count all logs in each section
-            filteredLogs.forEach(log => {
-                const section = log.section_type || 'general';
-                sectionCounts[section] = (sectionCounts[section] || 0) + 1;
-            });
-            
-            // Second pass: group current page logs
             pageLog.forEach(log => {
                 const section = log.section_type || 'general';
                 if (!sections[section]) {
@@ -1360,28 +1615,37 @@
                 sections[section].push(log);
             });
             
+            // Count stats across ALL filtered logs (not just current page)
+            const sectionCounts = {};
+            filteredLogs.forEach(log => {
+                const section = log.section_type || 'general';
+                if (!sectionCounts[section]) {
+                    sectionCounts[section] = { total: 0, errors: 0, warnings: 0 };
+                }
+                sectionCounts[section].total++;
+                if (log.level === 'ERROR') sectionCounts[section].errors++;
+                if (log.level === 'WARN') sectionCounts[section].warnings++;
+            });
+            
             let html = '';
-            let sectionNumber = 1;
             
             Object.keys(sections).forEach(sectionName => {
                 const logs = sections[sectionName];
-                const totalLogsInSection = sectionCounts[sectionName];
-                const errorCount = filteredLogs.filter(l => l.section_type === sectionName && l.level === 'ERROR').length;
-                const warnCount = filteredLogs.filter(l => l.section_type === sectionName && l.level === 'WARN').length;
-                
+                const stats = sectionCounts[sectionName];
+                const sectionNum = sectionNumbers[sectionName] || 0;
                 const isCollapsed = collapsedSections.has(sectionName);
                 
                 html += `
                     <div class="section-group">
                         <div class="section-header" onclick="toggleSectionCollapse('${sectionName}')">
                             <div class="section-title">
-                                <span class="section-number">№${sectionNumber}</span>
+                                <span class="section-number">№${sectionNum}</span>
                                 <span>${sectionName.toUpperCase()}</span>
                             </div>
                             <span class="section-stats">
-                                ${totalLogsInSection} logs
-                                ${errorCount > 0 ? ` · ${errorCount} errors` : ''}
-                                ${warnCount > 0 ? ` · ${warnCount} warnings` : ''}
+                                ${stats.total} logs
+                                ${stats.errors > 0 ? ` · ${stats.errors} errors` : ''}
+                                ${stats.warnings > 0 ? ` · ${stats.warnings} warnings` : ''}
                             </span>
                             <button class="section-collapse-btn ${isCollapsed ? 'collapsed' : ''}">▼</button>
                         </div>
@@ -1391,7 +1655,7 @@
                 logs.forEach(log => {
                     const isRead = readLogs.has(log.originalIndex);
                     const hasChain = log.req_id && requestChains[log.req_id];
-                    const chainLength = hasChain ? (requestChains[log.req_id].indices || requestChains[log.req_id]).length : 0;
+                    const chainLength = hasChain ? requestChains[log.req_id].length : 0;
                     
                     html += `
                         <div class="log-entry ${log.level} ${isRead ? 'read' : ''} ${hasChain ? 'has-chain' : ''}" id="log-${log.originalIndex}">
@@ -1403,7 +1667,7 @@
                                 </button>
                             </div>
                             <div class="log-header">
-                                <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+                                <span class="log-timestamp">${formatTimestampFull(log.timestamp)}</span>
                                 <span class="log-level ${log.level}">${log.level}</span>
                             </div>
                             <div style="line-height: 1.6;">${escapeHtml(log.message)}</div>
@@ -1415,7 +1679,6 @@
                         </div>
                     </div>
                 `;
-                sectionNumber++;
             });
             
             container.innerHTML = html;
@@ -1427,6 +1690,7 @@
             document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredLogs.length} logs)`;
             document.getElementById('prevBtn').disabled = currentPage === 1;
             document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+            document.getElementById('pageJumpInput').max = totalPages;
         }
 
         function changePage(delta) {
@@ -1446,13 +1710,13 @@
             filterAndDisplay();
         }
 
-        // FIXED: Gantt Chart with proper expand functionality
         async function loadGanttData(fileId) {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
                 const data = await response.json();
                 ganttData = data.gantt_data;
                 expandedTasks.clear();
+                expandedSubTasks.clear();
                 renderGanttChart();
             } catch (error) {
                 console.error('Error loading Gantt data:', error);
@@ -1471,6 +1735,16 @@
                 expandedTasks.delete(taskName);
             } else {
                 expandedTasks.add(taskName);
+            }
+            renderGanttChart();
+        }
+
+        function toggleSubTaskExpand(subTaskId, event) {
+            event.stopPropagation();
+            if (expandedSubTasks.has(subTaskId)) {
+                expandedSubTasks.delete(subTaskId);
+            } else {
+                expandedSubTasks.add(subTaskId);
             }
             renderGanttChart();
         }
@@ -1512,6 +1786,7 @@
                 const hasSubOps = task.sub_operations && task.sub_operations.length > 0;
                 const isExpanded = expandedTasks.has(task.task);
                 
+                // Main task row
                 tasksHTML += `
                     <div class="gantt-task-row">
                         <div class="gantt-task-label">
@@ -1543,12 +1818,16 @@
                     </div>
                 `;
 
+                // Sub-operations
                 if (isExpanded && hasSubOps) {
                     task.sub_operations.forEach(subOp => {
+                        const hasLogs = subOp.logs && subOp.logs.length > 0;
+                        const subExpanded = expandedSubTasks.has(subOp.id);
+                        
                         tasksHTML += `
                             <div class="gantt-task-row sub-task">
                                 <div class="gantt-task-label" style="padding-left: 8px;">
-                                    <span style="width:18px;display:inline-block;"></span>
+                                    ${hasLogs ? `<button class="gantt-expand-btn" onclick="toggleSubTaskExpand('${subOp.id}', event)">${subExpanded ? '▼' : '▶'}</button>` : '<span style="width:18px;display:inline-block;"></span>'}
                                     <div class="gantt-task-color" style="background: ${colors[task.task] || '#666'}; opacity: 0.6;"></div>
                                     ${subOp.id.substring(0, 20)}...
                                 </div>
@@ -1575,6 +1854,37 @@
                                 </div>
                             </div>
                         `;
+
+                        // Individual log operations
+                        if (subExpanded && hasLogs) {
+                            subOp.logs.forEach((log, logIdx) => {
+                                tasksHTML += `
+                                    <div class="gantt-task-row operation">
+                                        <div class="gantt-task-label" style="padding-left: 8px;">
+                                            <span style="width:18px;display:inline-block;"></span>
+                                            <span style="font-size: 10px; color: #6e6e73;">${formatTimestampFull(log.timestamp)}</span>
+                                            <span style="font-size: 10px;">${log.level}</span>
+                                        </div>
+                                    </div>
+                                `;
+
+                                const logTime = new Date(log.timestamp).getTime();
+                                const logLeftPercent = ((logTime - minStart) / totalDuration) * 100;
+
+                                timelinesHTML += `
+                                    <div class="gantt-timeline-row op-row">
+                                        <div class="gantt-timeline-grid">
+                                            ${timeBlocks.map(() => `<div class="gantt-grid-line" style="min-width: ${blockWidth}px;"></div>`).join('')}
+                                        </div>
+                                        <div class="gantt-bar ${task.task} op" 
+                                             style="left: ${logLeftPercent}%; width: 0.5%; min-width: 20px;"
+                                             onmouseenter="showGanttTooltip(event, 'Log #${logIdx + 1}', 0, 1, '${escapeHtml(log.message).substring(0, 50)}...')"
+                                             onmouseleave="hideGanttTooltip()">
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
                     });
                 }
             });
@@ -1601,13 +1911,19 @@
             }
         }
 
-        function showGanttTooltip(event, task, duration, logCount) {
+        function showGanttTooltip(event, task, duration, logCount, message) {
             const tooltip = document.getElementById('ganttTooltip');
-            tooltip.innerHTML = `
-                <strong>${task}</strong><br>
-                Duration: ${duration < 0.001 ? '<0.001s' : duration.toFixed(6)}s<br>
-                Logs: ${logCount}
-            `;
+            let html = `<strong>${task}</strong><br>`;
+            if (duration !== undefined) {
+                html += `Duration: ${duration < 0.001 ? '<0.001s' : duration.toFixed(6)}s<br>`;
+            }
+            if (logCount !== undefined) {
+                html += `Logs: ${logCount}<br>`;
+            }
+            if (message) {
+                html += `Message: ${message}`;
+            }
+            tooltip.innerHTML = html;
             tooltip.style.display = 'block';
             tooltip.style.left = (event.pageX + 10) + 'px';
             tooltip.style.top = (event.pageY + 10) + 'px';
@@ -1666,8 +1982,7 @@
             }
         }
 
-        // FIXED: Full timestamp with milliseconds
-        function formatTimestamp(ts) {
+        function formatTimestampFull(ts) {
             try {
                 const date = new Date(ts);
                 const year = date.getFullYear();
@@ -1677,8 +1992,9 @@
                 const minutes = String(date.getMinutes()).padStart(2, '0');
                 const seconds = String(date.getSeconds()).padStart(2, '0');
                 const ms = String(date.getMilliseconds()).padStart(3, '0');
+                const us = '000'; // Placeholder for microseconds (not available in JS Date)
                 
-                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}${us}`;
             } catch {
                 return ts;
             }

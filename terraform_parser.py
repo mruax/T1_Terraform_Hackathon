@@ -595,6 +595,10 @@ class DatabaseManager:
     
     async def _create_tables(self):
         async with self.pool.acquire() as conn:
+            # Drop old table if exists and recreate with file_hash
+            await conn.execute('DROP TABLE IF EXISTS log_entries CASCADE')
+            await conn.execute('DROP TABLE IF EXISTS log_files CASCADE')
+            
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS log_files (
                     id SERIAL PRIMARY KEY,
@@ -628,6 +632,8 @@ class DatabaseManager:
             await conn.execute('''
                 CREATE INDEX IF NOT EXISTS idx_log_entries_level ON log_entries(level)
             ''')
+            
+            logger.info("Database schema created/updated successfully with file_hash column")
     
     async def file_exists(self, file_hash: str) -> Optional[int]:
         """Check if file with this hash already exists"""
