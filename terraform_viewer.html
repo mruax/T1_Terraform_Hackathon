@@ -65,7 +65,6 @@
             transform: translateY(-2px);
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 8px;
@@ -111,7 +110,6 @@
             display: block;
         }
 
-        /* Sidebar */
         .layout {
             display: grid;
             grid-template-columns: 300px 1fr;
@@ -197,7 +195,6 @@
             font-size: 16px;
         }
 
-        /* Main content */
         .main-content {
             background: white;
             border-radius: 12px;
@@ -223,7 +220,6 @@
             background: #fafafa;
         }
 
-        /* Advanced Search */
         .advanced-search {
             background: #f5f5f7;
             padding: 20px;
@@ -358,7 +354,6 @@
             background: #0051d5;
         }
 
-        /* Pagination */
         .pagination {
             display: flex;
             justify-content: center;
@@ -394,7 +389,7 @@
             overflow-y: auto;
         }
 
-        /* Section grouping */
+        /* Section grouping - FIXED */
         .section-group {
             margin-bottom: 32px;
             border: 2px solid #e5e5e7;
@@ -403,7 +398,7 @@
         }
 
         .section-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1d1d1f;
             color: white;
             padding: 16px 24px;
             font-weight: 700;
@@ -411,6 +406,38 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header:hover {
+            background: #2d2d2f;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-number {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .section-collapse-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .section-collapse-btn.collapsed {
+            transform: rotate(-90deg);
         }
 
         .section-stats {
@@ -422,6 +449,10 @@
         .section-content {
             padding: 16px;
             background: #fafafa;
+        }
+
+        .section-content.collapsed {
+            display: none;
         }
 
         .log-entry {
@@ -453,16 +484,50 @@
             border-right: 4px solid #5856d6;
         }
 
-        .chain-indicator {
+        /* FIXED: Entry actions in one row */
+        .entry-actions {
             position: absolute;
-            top: 20px;
-            right: 50px;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .unread-badge {
+            width: 8px;
+            height: 8px;
+            background: #007aff;
+            border-radius: 50%;
+        }
+
+        .chain-indicator {
             background: #5856d6;
             color: white;
             padding: 4px 12px;
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chain-indicator:hover {
+            background: #4745b8;
+        }
+
+        .mark-read-btn {
+            background: none;
+            border: 1px solid #d2d2d7;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mark-read-btn:hover {
+            background: #f5f5f7;
         }
 
         .log-header {
@@ -473,6 +538,7 @@
             flex-wrap: wrap;
         }
 
+        /* FIXED: Full timestamp with milliseconds */
         .log-timestamp {
             color: #6e6e73;
             font-size: 12px;
@@ -493,33 +559,6 @@
         .log-level.WARN { background: #ff9500; color: white; }
         .log-level.ERROR { background: #ff3b30; color: white; }
         .log-level.FATAL { background: #d70015; color: white; }
-
-        .unread-badge {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 8px;
-            height: 8px;
-            background: #007aff;
-            border-radius: 50%;
-        }
-
-        .mark-read-btn {
-            position: absolute;
-            top: 16px;
-            right: 40px;
-            background: none;
-            border: 1px solid #d2d2d7;
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .mark-read-btn:hover {
-            background: #f5f5f7;
-        }
 
         /* Gantt Chart */
         .gantt-container {
@@ -667,6 +706,15 @@
             cursor: pointer;
             font-size: 14px;
             padding: 2px;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gantt-expand-btn:hover {
+            color: #1d1d1f;
         }
 
         .gantt-timeline-column {
@@ -775,7 +823,6 @@
             max-width: 300px;
         }
 
-        /* Monitoring */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -841,7 +888,6 @@
         </div>
 
         <div class="layout">
-            <!-- Sidebar -->
             <div class="sidebar">
                 <h3>Log Files</h3>
                 <div class="file-list" id="fileList">
@@ -851,9 +897,7 @@
                 </div>
             </div>
 
-            <!-- Main Content -->
             <div class="main-content">
-                <!-- Logs Tab -->
                 <div class="tab-content active" id="logs-tab">
                     <div class="upload-section">
                         <div class="upload-box" id="uploadBox">
@@ -874,7 +918,6 @@
                         <div class="level-filters" id="levelFilters"></div>
                     </div>
 
-                    <!-- Advanced Search -->
                     <div class="advanced-search" id="advancedSearch">
                         <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Advanced Filters</h4>
                         <div class="search-grid">
@@ -928,7 +971,6 @@
                         </div>
                     </div>
 
-                    <!-- Pagination -->
                     <div class="pagination" id="pagination" style="display: none;">
                         <button onclick="changePage(-1)" id="prevBtn">← Previous</button>
                         <span class="page-info" id="pageInfo">Page 1 of 1</span>
@@ -936,7 +978,6 @@
                     </div>
                 </div>
 
-                <!-- Gantt Tab -->
                 <div class="tab-content" id="gantt-tab">
                     <div class="gantt-container">
                         <div class="gantt-controls">
@@ -956,7 +997,6 @@
                     <div class="gantt-tooltip" id="ganttTooltip"></div>
                 </div>
 
-                <!-- Monitoring Tab -->
                 <div class="tab-content" id="monitoring-tab">
                     <div class="metrics-grid">
                         <div class="metric-card">
@@ -996,12 +1036,12 @@
         let ganttZoom = 1;
         let ganttData = null;
         let expandedTasks = new Set();
+        let collapsedSections = new Set();
         let metricsChart = null;
         let requestChains = {};
 
         const API_BASE = '';
 
-        // Tab switching
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -1016,7 +1056,6 @@
             }
         }
 
-        // File upload
         const uploadBox = document.getElementById('uploadBox');
         const fileInput = document.getElementById('fileInput');
 
@@ -1262,6 +1301,33 @@
             displayLogs();
         }
 
+        // FIXED: Toggle section collapse
+        function toggleSectionCollapse(sectionName) {
+            if (collapsedSections.has(sectionName)) {
+                collapsedSections.delete(sectionName);
+            } else {
+                collapsedSections.add(sectionName);
+            }
+            displayLogs();
+        }
+
+        // FIXED: Show chain details
+        function showChainDetails(reqId) {
+            if (!requestChains[reqId]) return;
+            
+            const chainIndices = requestChains[reqId].indices || requestChains[reqId];
+            const chainLogs = chainIndices.map(idx => allLogs[idx]).filter(l => l);
+            
+            if (chainLogs.length === 0) return;
+            
+            let message = `Request Chain: ${reqId}\n\nTotal logs: ${chainLogs.length}\n\n`;
+            chainLogs.forEach((log, i) => {
+                message += `${i + 1}. [${log.level}] ${formatTimestamp(log.timestamp)}\n   ${log.message.substring(0, 100)}...\n\n`;
+            });
+            
+            alert(message);
+        }
+
         function displayLogs() {
             const container = document.getElementById('logsContainer');
             
@@ -1275,8 +1341,17 @@
             const endIdx = startIdx + logsPerPage;
             const pageLog = filteredLogs.slice(startIdx, endIdx);
             
-            // Group by sections
+            // FIXED: Group by sections and count ALL logs in section, not just on page
             const sections = {};
+            const sectionCounts = {};
+            
+            // First pass: count all logs in each section
+            filteredLogs.forEach(log => {
+                const section = log.section_type || 'general';
+                sectionCounts[section] = (sectionCounts[section] || 0) + 1;
+            });
+            
+            // Second pass: group current page logs
             pageLog.forEach(log => {
                 const section = log.section_type || 'general';
                 if (!sections[section]) {
@@ -1286,37 +1361,47 @@
             });
             
             let html = '';
+            let sectionNumber = 1;
             
             Object.keys(sections).forEach(sectionName => {
                 const logs = sections[sectionName];
-                const errorCount = logs.filter(l => l.level === 'ERROR').length;
-                const warnCount = logs.filter(l => l.level === 'WARN').length;
+                const totalLogsInSection = sectionCounts[sectionName];
+                const errorCount = filteredLogs.filter(l => l.section_type === sectionName && l.level === 'ERROR').length;
+                const warnCount = filteredLogs.filter(l => l.section_type === sectionName && l.level === 'WARN').length;
+                
+                const isCollapsed = collapsedSections.has(sectionName);
                 
                 html += `
                     <div class="section-group">
-                        <div class="section-header">
-                            <span>${sectionName.toUpperCase()}</span>
+                        <div class="section-header" onclick="toggleSectionCollapse('${sectionName}')">
+                            <div class="section-title">
+                                <span class="section-number">№${sectionNumber}</span>
+                                <span>${sectionName.toUpperCase()}</span>
+                            </div>
                             <span class="section-stats">
-                                ${logs.length} logs
+                                ${totalLogsInSection} logs
                                 ${errorCount > 0 ? ` · ${errorCount} errors` : ''}
                                 ${warnCount > 0 ? ` · ${warnCount} warnings` : ''}
                             </span>
+                            <button class="section-collapse-btn ${isCollapsed ? 'collapsed' : ''}">▼</button>
                         </div>
-                        <div class="section-content">
+                        <div class="section-content ${isCollapsed ? 'collapsed' : ''}">
                 `;
                 
                 logs.forEach(log => {
                     const isRead = readLogs.has(log.originalIndex);
                     const hasChain = log.req_id && requestChains[log.req_id];
-                    const chainLength = hasChain ? requestChains[log.req_id].length : 0;
+                    const chainLength = hasChain ? (requestChains[log.req_id].indices || requestChains[log.req_id]).length : 0;
                     
                     html += `
                         <div class="log-entry ${log.level} ${isRead ? 'read' : ''} ${hasChain ? 'has-chain' : ''}" id="log-${log.originalIndex}">
-                            ${!isRead ? '<div class="unread-badge"></div>' : ''}
-                            ${hasChain ? `<div class="chain-indicator">🔗 ${chainLength}</div>` : ''}
-                            <button class="mark-read-btn" onclick="markAsRead(${log.originalIndex})">
-                                ${isRead ? '↻ Unread' : '✓ Read'}
-                            </button>
+                            <div class="entry-actions">
+                                ${!isRead ? '<div class="unread-badge"></div>' : ''}
+                                ${hasChain ? `<div class="chain-indicator" onclick="showChainDetails('${log.req_id}')">🔗 ${chainLength}</div>` : ''}
+                                <button class="mark-read-btn" onclick="markAsRead(${log.originalIndex})">
+                                    ${isRead ? '↻ Unread' : '✓ Read'}
+                                </button>
+                            </div>
                             <div class="log-header">
                                 <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
                                 <span class="log-level ${log.level}">${log.level}</span>
@@ -1330,6 +1415,7 @@
                         </div>
                     </div>
                 `;
+                sectionNumber++;
             });
             
             container.innerHTML = html;
@@ -1360,7 +1446,7 @@
             filterAndDisplay();
         }
 
-        // Gantt Chart
+        // FIXED: Gantt Chart with proper expand functionality
         async function loadGanttData(fileId) {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/gantt/${fileId}`);
@@ -1379,7 +1465,8 @@
             renderGanttChart();
         });
 
-        function toggleTaskExpand(taskName) {
+        function toggleTaskExpand(taskName, event) {
+            event.stopPropagation();
             if (expandedTasks.has(taskName)) {
                 expandedTasks.delete(taskName);
             } else {
@@ -1428,7 +1515,7 @@
                 tasksHTML += `
                     <div class="gantt-task-row">
                         <div class="gantt-task-label">
-                            ${hasSubOps ? `<button class="gantt-expand-btn" onclick="toggleTaskExpand('${task.task}')">${isExpanded ? '▼' : '▶'}</button>` : '<span style="width:18px"></span>'}
+                            ${hasSubOps ? `<button class="gantt-expand-btn" onclick="toggleTaskExpand('${task.task}', event)">${isExpanded ? '▼' : '▶'}</button>` : '<span style="width:18px;display:inline-block;"></span>'}
                             <div class="gantt-task-color" style="background: ${colors[task.task] || '#666'}"></div>
                             ${task.task}
                         </div>
@@ -1460,7 +1547,8 @@
                     task.sub_operations.forEach(subOp => {
                         tasksHTML += `
                             <div class="gantt-task-row sub-task">
-                                <div class="gantt-task-label">
+                                <div class="gantt-task-label" style="padding-left: 8px;">
+                                    <span style="width:18px;display:inline-block;"></span>
                                     <div class="gantt-task-color" style="background: ${colors[task.task] || '#666'}; opacity: 0.6;"></div>
                                     ${subOp.id.substring(0, 20)}...
                                 </div>
@@ -1506,7 +1594,6 @@
                 </div>
             `;
 
-            // Remove scroll at zoom 1.0
             if (ganttZoom === 1.0) {
                 workspace.classList.add('no-scroll');
             } else {
@@ -1530,7 +1617,6 @@
             document.getElementById('ganttTooltip').style.display = 'none';
         }
 
-        // Monitoring
         async function loadMonitoringData() {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/metrics`);
@@ -1580,9 +1666,19 @@
             }
         }
 
+        // FIXED: Full timestamp with milliseconds
         function formatTimestamp(ts) {
             try {
-                return new Date(ts).toLocaleString();
+                const date = new Date(ts);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const ms = String(date.getMilliseconds()).padStart(3, '0');
+                
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
             } catch {
                 return ts;
             }
