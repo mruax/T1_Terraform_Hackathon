@@ -575,22 +575,11 @@ async def upload_log(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing log: {str(e)}")
 
+from fastapi.responses import FileResponse
+
 @app.get("/")
 async def root():
-    return {
-        "message": "Terraform Log Processor API with Plugin System",
-        "endpoints": {
-            "/upload-log/": "POST - Upload and process log file",
-            "/docs": "Swagger UI documentation"
-        },
-        "available_plugins": [
-            "SensitiveDataPlugin - Redact API tokens and secrets",
-            "FieldFilterPlugin - Remove unnecessary fields",
-            "LogLevelFilterPlugin - Filter by minimum log level",
-            "NoiseFilterPlugin - Remove repetitive logs",
-            "HTTPBodyCompressionPlugin - Compress large bodies"
-        ]
-    }
+    return FileResponse("terraform_log_viewer_super.html")
 
 
 # ==================== USAGE EXAMPLE ====================
