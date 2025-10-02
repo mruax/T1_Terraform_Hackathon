@@ -26,7 +26,7 @@ Advanced Terraform log analysis system with plugin architecture, database persis
 1. **Clone the repository**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/mruax/T1_Terraform_Hackathon
 cd T1_Terraform_Hackathon
 ```
 
