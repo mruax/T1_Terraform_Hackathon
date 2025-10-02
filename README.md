@@ -1,6 +1,6 @@
 # 🚀 Terraform Log Processor 2.0
 
-Advanced Terraform log analysis system with plugin architecture, database persistence, monitoring integration, and interactive Gantt visualization.
+Advanced Terraform log analysis system with plugin architecture, database persistence, monitoring integration, and interactive Gantt visualization. 2
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11-green)
