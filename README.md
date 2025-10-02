@@ -8,96 +8,94 @@ Advanced Terraform log analysis system with plugin architecture, database persis
 
 ## Features
 
-### Core Features
-- **Interactive Gantt Chart** - Visualize Terraform operation timelines
-- **Database Persistence** - PostgreSQL storage for all logs
-- **Plugin System** - Modular log processing (5 built-in plugins)
-- **Security** - Automatic sensitive data redaction
-- **Read/Unread Tracking** - Mark logs as read/unread
+### Ключевые возможности
+- **Полнотекстовый поисковый движок** - Возможность искать по простым запросам, полям или regexp-выражениям
+- **Интерактивная диаграмма Ганта** - Визуализация операций Terraform по времени
+- **База данных** - Хранение всех логов в PostgreSQL
+- **Система gRPC плагинов** - Модульная обработка логов (5 встроенных плагинов)
+- **Поддержка безопасности** - Возможность автоматического редактирования конфиденциальных данных
 
-## Quick Start
+## Быстрый старт
 
-### Prerequisites
+### Преквизиты
 - Docker & Docker Compose
-- 4GB RAM recommended
+- 4GB RAM
 
-### Installation
+### Запуск
 
-1. **Clone the repository**
+1. **Склонировать репозиторий**
 
 ```bash
 git clone https://github.com/mruax/T1_Terraform_Hackathon
 cd T1_Terraform_Hackathon
 ```
 
-2. **Start the services**
+2. **Запуск docker compose**
 
 ```bash
 docker compose up --build
 ```
 
-3. **Access the interface**
+3. **Доступ к интерфейсу**
 
-Open your browser: `http://localhost:8000`
+Открыть UI по адресу: `http://localhost:8000`
 
-That's it! The system is ready to use.
+### Первые шаги
 
-### First Steps
+1. Нажмите "Drop log file here" или перетащите Terraform log файл на главной странице
+2. Просмотр распаршенных логов на вкладке **Logs**
+3. Для просмотра графиков Terraform операций переключиться на вкладку **Gantt Chart**
+4. Проверить общие метрики сервиса можно на вкладке **Monitoring**
 
-1. Click "Drop log file here" or drag & drop a Terraform log file
-2. View parsed logs in the **Logs** tab
-3. Switch to **Gantt Chart** tab to see operation timeline
-4. Check **Monitoring** tab for overall metrics
+## Использование
 
-## Usage
+### Веб Интерфейс
 
-### Web Interface
+#### Логи
+- **Загрузка**: Выбранный `.json` файл нужно перенести или нажать на кнопку загрузки
+- **Фильтрация**: Поиск по тексту, фильтрам, regex или уровням логов (TRACE/DEBUG/INFO/WARN/ERROR/FATAL)
+- **Прочтенные/непрочтенные**: Пометить логи как прочитанные/непрочитанные и отфильтровать по их статусу прочтения
+- **Выбор логов**: Левый sidebar отображает список загруженных логов
 
-#### Logs Tab
-- **Upload**: Drag & drop or click to upload `.log`, `.txt`, or `.json` files
-- **Filter**: Search by text, filter by log level (TRACE/DEBUG/INFO/WARN/ERROR/FATAL)
-- **Read/Unread**: Mark logs as read and filter by unread status
-- **File Selector**: Left sidebar shows all uploaded files
+#### Диаграмма Ганта
+- **Просмотр временной шкалы**: Интерактивная визуализация Terraform операций
+- **Информация по операциям**: При наведении на операции высвечивается краткое описание и их длительность
+- **Детальная информация**: При нажатии на операцию открывается подробная информация об операции
 
-#### Gantt Chart Tab
-- **Timeline View**: Interactive visualization of Terraform operations
-- **Duration Info**: Hover over bars to see operation duration
-- **Operation Details**: Click bars to see detailed information
-
-#### Monitoring Tab
-- **Metrics Dashboard**: Total files, errors, warnings, health status
-- **Charts**: Visual representation of log uploads over time
+#### Мониторинг
+- **Дешборд с метриками**: Общее количество файлов, ошибки, предупреждения, health status
+- **График**: Визуальное представление загрузки логов с течением времени
 
 ### API Usage
 
-Use `http://localhost:8000/docs`
+Описание апи нужно добавить TODO: 123 `http://localhost:8000/docs`
 
-## Plugins
+## Плагины
 
 ### 1. SensitiveDataPlugin
-Automatically redacts sensitive information.
+Автоматически редактирует конфиденциальную информацию.
 
-**Detects:**
-- API tokens and keys
-- Passwords
+**Обнаруживает:**
+- Токены и ключи API
+- Пароли
 - Bearer tokens
-- Authorization headers
-- AWS keys
-- JWT tokens
+- Заголовки авторизации
+- Ключи AWS
+- Токены JWT
 
 ### 2. FieldFilterPlugin
-Include or exclude specific fields from logs.
+Включение или исключение определенных полей из логов.
 
 ### 3. LogLevelFilterPlugin
-Filter logs by minimum level.
+Фильтрация логов по уровню.
 
 ### 4. NoiseFilterPlugin
-Remove repetitive, noisy log messages.
+Удаление повторяющихся/шумных строк логов.
 
 ### 5. HTTPBodyCompressionPlugin
-Compress large HTTP request/response bodies.
+Сжатие больших HTTP тел запросов/ответов.
 
-## Database Schema
+## Схема БД
 
 ### log_files
 ```sql
@@ -126,9 +124,9 @@ CREATE TABLE log_entries (
 );
 ```
 
-## Configuration
+## Дополнительная конфигурация (опционально)
 
-### Environment Variables
+### Переменные окружения
 
 ```bash
 # Database URL
@@ -139,24 +137,9 @@ HOST=0.0.0.0
 PORT=8000
 ```
 
-### Plugin Presets
+## Интеграция с API
 
-**Production (Secure):**
-```bash
-?redact_sensitive=true&min_level=INFO&remove_noise=true&compress_bodies=true
-```
-
-**Development (Full Debug):**
-```bash
-?redact_sensitive=false&min_level=TRACE&remove_noise=false&compress_bodies=false
-```
-
-**Monitoring (Errors Only):**
-```bash
-?min_level=ERROR&remove_noise=true
-```
-
-## API Integration
+Возможные варианты интеграции.
 
 ### Prometheus
 
@@ -170,7 +153,7 @@ scrape_configs:
 
 ### Grafana
 
-Create a JSON API data source pointing to:
+Создать JSON API data source направляющий на:
 ```
 http://localhost:8000/api/v1/metrics
 ```
@@ -189,9 +172,9 @@ for alert in alerts['alerts']:
     )
 ```
 
-## Development
+## Разработка
 
-### Local Setup
+### Локальный запуск
 
 ```bash
 # Install dependencies
@@ -208,7 +191,7 @@ docker run -d -p 5432:5432 \
 uvicorn terraform_log_parser:app --reload
 ```
 
-### Adding Custom Plugins
+### Добавление кастомных плагинов
 
 ```python
 from terraform_log_parser import LogPlugin, LogEntry
@@ -226,23 +209,27 @@ class CustomPlugin(LogPlugin):
 parser = TerraformLogParser(plugins=[CustomPlugin()])
 ```
 
-## Optimization Tips
+## Советы по оптимизации
 
-1. Use `compress_bodies=true` for large HTTP payloads
-2. Apply `min_level=INFO` to reduce noise
-3. Enable `remove_noise=true` for production logs
-4. Use field filtering to reduce database size
+1. Используйте `compress_bodies=true` при больших размерах тел HTTP запросов
+2. Примените `min_level=INFO` и `remove_noise=true` для уменьшения шума
+3. Используйте фильтрацию полей для уменьшения размера поиска данных
 
-## Security
+## Безопасность
 
-### Best Practices
+### Лучшие практики
 
-1. **Always enable** `redact_sensitive` in production
-2. **Use environment variables** for database credentials
-3. **Enable HTTPS** for production deployments
-4. **Restrict API access** with authentication middleware
-5. **Regular backups** of PostgreSQL database
+1. **Всегда включайте** `redact_sensitive` в production среде
+2. **Используйте переменные среды** для учетных данных базы данных
+3. **Включите HTTPS** для production развертываний
+4. **Ограничьте доступ к API** с помощью промежуточного программного обеспечения для проверки подлинности
+5. **Регулярное резервное копирование** базы данных PostgreSQL
+
+## Планы на будущее
+
+1. Система авторизации
+2. Улучшенный ui, больше видов диаграмм для анализа данных, более сложный поисковой движок
 
 ---
 
-**Sincerely yours, Pozvonochnik Vezhlivost**
+С уважением, команда **Позвоночник ► Вежливость**
