@@ -21,6 +21,9 @@ let sidebarCollapsed = false;
 let currentTab = 'logs';
 let ganttScrollPos = { left: 0, top: 0 };
 let ganttScrollContainer = null;
+let availableProviders = new Set();
+let availableResourceTypes = new Set();
+let availableSections = new Set();
 
 const API_BASE = '';
 
@@ -84,6 +87,363 @@ document.getElementById('ganttChart').addEventListener('wheel', (e) => {
 // Load file list on page load
 loadFileList();
 
+// ==================== SMART PROVIDER DETECTION ====================
+
+function parseProviderAddress(addr) {
+    if (!addr || typeof addr !== 'string') return null;
+    
+    // Clean up the address
+    addr = addr.trim();
+    
+    // Formats:
+    // 1. registry.terraform.io/hashicorp/aws
+    // 2. tf-registry.t1.cloud/t1cloud/t1cloud
+    // 3. hashicorp/aws
+    // 4. t1/t1-cloud/t1
+    // 5. aws (built-in)
+    
+    // Remove common prefixes
+    addr = addr.replace(/^registry\.terraform\.io\//i, '');
+    addr = addr.replace(/^tf-registry\.[^/]+\//i, '');
+    
+    const parts = addr.split('/').filter(p => p);
+    
+    if (parts.length === 0) return null;
+    
+    let namespace = null;
+    let name = null;
+    let fullAddr = addr;
+    
+    if (parts.length >= 2) {
+        // Format: namespace/name or namespace/type/name
+        namespace = parts[0];
+        name = parts[parts.length - 1]; // Last part is the name
+    } else {
+        // Single part - built-in provider
+        name = parts[0];
+        namespace = 'builtin';
+    }
+    
+    // Clean provider name
+    name = name.replace(/[^a-zA-Z0-9-_]/g, '');
+    
+    return {
+        name: name,
+        namespace: namespace,
+        fullAddr: fullAddr,
+        displayName: formatProviderName(name)
+    };
+}
+
+function formatProviderName(name) {
+    // Convert provider names to display format
+    const knownProviders = {
+        't1cloud': 'T1 Cloud',
+        't1': 'T1 Cloud',
+        'aws': 'AWS',
+        'azurerm': 'Azure',
+        'google': 'Google Cloud',
+        'gcp': 'Google Cloud',
+        'kubernetes': 'Kubernetes',
+        'helm': 'Helm',
+        'docker': 'Docker',
+        'local': 'Local',
+        'null': 'Null',
+        'random': 'Random',
+        'time': 'Time',
+        'tls': 'TLS',
+        'http': 'HTTP',
+        'external': 'External'
+    };
+    
+    const lower = name.toLowerCase();
+    if (knownProviders[lower]) {
+        return knownProviders[lower];
+    }
+    
+    // Capitalize first letter
+    return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function extractProviderFromMessage(message) {
+    // Try to extract provider from message patterns
+    const patterns = [
+        // Quoted providers: provider "aws"
+        /provider\s+"([^"]+)"/i,
+        // Escaped quotes: provider \"tf-registry.t1.cloud/t1cloud/t1cloud\"
+        /provider\s+type\s+\\"([^\\]+)\\"/i,
+        /provider\s+\\"([^\\]+)\\"/i,
+        // Full registry paths in messages: found tf-registry.t1.cloud/t1cloud/t1cloud
+        /(?:found|Initializing|provider)\s+([a-z0-9.-]+\/[a-z0-9_-]+\/[a-z0-9_-]+)/i,
+        // Short paths: provider t1/t1-cloud/t1 has
+        /provider\s+([a-z0-9_-]+\/[a-z0-9_-]+\/[a-z0-9_-]+)\s+/i,
+        // Unquoted simple: provider aws
+        /provider\s+([a-zA-Z0-9_-]+)\s+/i,
+        // In brackets: [aws provider]
+        /\[([a-zA-Z0-9_-]+)\s+provider\]/i,
+        // Plugin references: plugin: aws
+        /plugin:\s+([a-zA-Z0-9_-]+)/i,
+        // Schema for provider: Schema for provider "aws"
+        /Schema\s+for\s+provider\s+"([^"]+)"/i,
+        // Module references: @module:"provider.aws"
+        /@module[:\s]+"?provider\.([a-zA-Z0-9_-]+)"?/i
+    ];
+    
+    for (const pattern of patterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+    
+    return null;
+}
+
+function extractResourceTypeFromMessage(message) {
+    // Extract resource types from messages
+    // Pattern: provider_resource_type (e.g., aws_instance, t1_vpc_network)
+    const patterns = [
+        // Quoted resource types: resource "t1_vpc_vip"
+        /resource\s+"([a-zA-Z0-9_]+)"/i,
+        // Resource type field: resource type "t1_vpc_subnet"
+        /resource\s+type\s+"?([a-zA-Z0-9_]+)"?/i,
+        // Data source: data source "t1_vpc_network"
+        /data\s+source\s+"([a-zA-Z0-9_]+)"/i,
+        /data\s+source\s+type\s+"?([a-zA-Z0-9_]+)"?/i,
+        // Found resource type
+        /Found\s+resource\s+type\s+"?([a-zA-Z0-9_]+)"?/i,
+        // Checking resource: Checking t1_vpc_subnet
+        /Checking\s+([a-z][a-z0-9]*_[a-z0-9_]+)/i,
+        // Starting/visiting: starting visit t1_vpc_router
+        /(?:starting|visit|visiting)\s+([a-z][a-z0-9]*_[a-z0-9_]+)/i,
+        // For type: for t1_vpc_vip
+        /for\s+([a-z][a-z0-9]*_[a-z0-9_]+)/i,
+        // Generic provider_resource pattern with context
+        /\b([a-z0-9]+_[a-z0-9_]+(?:_[a-z0-9_]+)?)\b/i
+    ];
+    
+    for (const pattern of patterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+            const type = match[1];
+            // Validate it looks like a resource type (has underscore and looks like terraform format)
+            if (type.includes('_') && /^[a-z0-9]+_[a-z0-9_]+$/.test(type)) {
+                // Filter out common false positives
+                const blacklist = ['module_instance', 'data_source', 'resource_type', 'node_expand'];
+                if (!blacklist.includes(type.toLowerCase())) {
+                    return type;
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+function extractMetadataFromLogs() {
+    availableProviders.clear();
+    availableResourceTypes.clear();
+    availableSections.clear();
+    
+    const providerMap = new Map(); // Use map to deduplicate by name
+    const resourceSet = new Set();
+    
+    allLogs.forEach(log => {
+        // ===== PROVIDER EXTRACTION =====
+        let providerData = null;
+        
+        // 1. Try terraform_metadata
+        if (log.terraform_metadata && log.terraform_metadata.tf_provider_addr) {
+            providerData = parseProviderAddress(log.terraform_metadata.tf_provider_addr);
+        }
+        
+        // 2. Try raw_json (multiple fields)
+        if (!providerData && log.raw_json) {
+            try {
+                const raw = typeof log.raw_json === 'string' ? JSON.parse(log.raw_json) : log.raw_json;
+                
+                // Check various provider fields
+                const providerFields = [
+                    'tf_provider_addr',
+                    'tf_mux_provider',
+                    '@module', // Sometimes contains provider info
+                ];
+                
+                for (const field of providerFields) {
+                    if (raw[field]) {
+                        // Extract provider from module field: "provider.terraform-provider-t1cloud"
+                        if (field === '@module' && raw[field].includes('provider')) {
+                            const moduleMatch = raw[field].match(/provider[.\-_]([a-zA-Z0-9_-]+)/i);
+                            if (moduleMatch) {
+                                providerData = parseProviderAddress(moduleMatch[1]);
+                                if (providerData) break;
+                            }
+                        } else {
+                            providerData = parseProviderAddress(raw[field]);
+                            if (providerData) break;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore
+            }
+        }
+        
+        // 3. Try to extract from message (now with improved patterns)
+        if (!providerData) {
+            const providerFromMsg = extractProviderFromMessage(log.message);
+            if (providerFromMsg) {
+                providerData = parseProviderAddress(providerFromMsg);
+            }
+        }
+        
+        // Store provider (deduplicate by name)
+        if (providerData && providerData.name) {
+            const normalizedName = providerData.name.toLowerCase();
+            
+            if (!providerMap.has(normalizedName)) {
+                providerMap.set(normalizedName, {
+                    name: providerData.name,
+                    displayName: providerData.displayName,
+                    fullAddr: providerData.fullAddr,
+                    namespace: providerData.namespace,
+                    count: 0,
+                    aliases: new Set([providerData.fullAddr]) // Track all seen addresses
+                });
+            }
+            
+            const existing = providerMap.get(normalizedName);
+            existing.count++;
+            existing.aliases.add(providerData.fullAddr);
+        }
+        
+        // ===== RESOURCE TYPE EXTRACTION =====
+        
+        // 1. From terraform_metadata
+        if (log.terraform_metadata) {
+            if (log.terraform_metadata.tf_resource_type) {
+                resourceSet.add(log.terraform_metadata.tf_resource_type);
+            }
+            if (log.terraform_metadata.tf_data_source_type) {
+                resourceSet.add(log.terraform_metadata.tf_data_source_type);
+            }
+        }
+        
+        // 2. From raw_json
+        if (log.raw_json) {
+            try {
+                const raw = typeof log.raw_json === 'string' ? JSON.parse(log.raw_json) : log.raw_json;
+                
+                const resourceFields = [
+                    'tf_resource_type',
+                    'tf_data_source_type'
+                ];
+                
+                for (const field of resourceFields) {
+                    if (raw[field] && typeof raw[field] === 'string') {
+                        resourceSet.add(raw[field]);
+                    }
+                }
+            } catch (e) {
+                // Ignore
+            }
+        }
+        
+        // 3. From message (now with improved patterns)
+        const resourceFromMsg = extractResourceTypeFromMessage(log.message);
+        if (resourceFromMsg) {
+            resourceSet.add(resourceFromMsg);
+        }
+        
+        // ===== SECTION EXTRACTION =====
+        if (log.section_type) {
+            availableSections.add(log.section_type);
+        }
+    });
+    
+    // Convert map to set with enhanced info
+    providerMap.forEach(provider => {
+        // Use the most complete address as fullAddr
+        const addresses = Array.from(provider.aliases);
+        const bestAddr = addresses.reduce((best, addr) => {
+            // Prefer addresses with registry path
+            if (addr.includes('.') && addr.split('/').length >= 3) return addr;
+            if (best.includes('.')) return best;
+            return addr.length > best.length ? addr : best;
+        }, addresses[0]);
+        
+        provider.fullAddr = bestAddr;
+        delete provider.aliases; // Remove aliases before adding to set
+        
+        availableProviders.add(provider);
+    });
+    
+    // Convert resource set with validation
+    resourceSet.forEach(type => {
+        // Only add if it looks like a valid terraform resource type
+        if (type && typeof type === 'string' && 
+            /^[a-z][a-z0-9]*_[a-z0-9_]+$/.test(type) && 
+            type.length >= 3 && type.length <= 100) {
+            availableResourceTypes.add(type);
+        }
+    });
+}
+
+function updateAdvancedFilters() {
+    // Update Provider filter
+    const providerSelect = document.getElementById('filterProvider');
+    providerSelect.innerHTML = '<option value="">All Providers</option>';
+    
+    // Convert Set to Array and sort by display name
+    const providers = Array.from(availableProviders).sort((a, b) => 
+        a.displayName.localeCompare(b.displayName)
+    );
+    
+    providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.name; // Use name for matching
+        option.textContent = `${provider.displayName} (${provider.count})`;
+        option.title = `${provider.fullAddr}\nFound in ${provider.count} logs`;
+        providerSelect.appendChild(option);
+    });
+    
+    // Update Resource Type - add datalist for autocomplete
+    const resourceInput = document.getElementById('filterResource');
+    
+    // Create or update datalist
+    let datalist = document.getElementById('resourceTypeList');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'resourceTypeList';
+        resourceInput.parentNode.appendChild(datalist);
+        resourceInput.setAttribute('list', 'resourceTypeList');
+    }
+    
+    datalist.innerHTML = '';
+    const resourceTypes = Array.from(availableResourceTypes).sort();
+    resourceTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        datalist.appendChild(option);
+    });
+    
+    if (resourceTypes.length > 0) {
+        resourceInput.placeholder = `e.g., ${resourceTypes[0]}`;
+    }
+    
+    // Update Section filter
+    const sectionSelect = document.getElementById('filterSection');
+    sectionSelect.innerHTML = '<option value="">All Sections</option>';
+    
+    const sections = Array.from(availableSections).sort();
+    sections.forEach(section => {
+        const option = document.createElement('option');
+        option.value = section;
+        option.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+        sectionSelect.appendChild(option);
+    });
+}
+
 // ==================== UI FUNCTIONS ====================
 
 function toggleSidebar() {
@@ -128,13 +488,13 @@ function updateFileListDisplay() {
         const stats = item.querySelector('.file-item-stats');
         
         if (currentTab === 'gantt' || currentTab === 'monitoring') {
-            if (!deleteBtn) deleteBtn.style.display = sidebarCollapsed ? 'block' : 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
             if (stats) {
                 const badges = stats.querySelectorAll('.stat-badge');
                 badges.forEach(badge => badge.style.display = 'none');
             }
         } else {
-            if (!deleteBtn) {
+            if (deleteBtn) {
                 deleteBtn.style.display = sidebarCollapsed ? 'none' : 'block';
             }
             if (stats) {
@@ -307,6 +667,9 @@ async function loadLogFile(fileId) {
 
         requestChains = data.request_chains || {};
 
+        // Extract unique providers, resource types, and sections
+        extractMetadataFromLogs();
+
         sectionNumbers = {};
         let sectionCounter = 1;
         const seenSections = new Set();
@@ -322,6 +685,7 @@ async function loadLogFile(fileId) {
         updateProgress(90, 'Rendering...');
 
         createLevelFilters();
+        updateAdvancedFilters();
         filterAndDisplay();
         document.getElementById('controls').style.display = 'flex';
         document.getElementById('pagination').style.display = 'flex';
@@ -422,7 +786,7 @@ function changePerPage() {
 
 function filterAndDisplay() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const provider = document.getElementById('filterProvider')?.value || '';
+    const providerFilter = document.getElementById('filterProvider')?.value || '';
     const resource = document.getElementById('filterResource')?.value.toLowerCase() || '';
     const section = document.getElementById('filterSection')?.value || '';
     const dateFrom = document.getElementById('filterDateFrom')?.value || '';
@@ -450,14 +814,98 @@ function filterAndDisplay() {
             matchesChain = !log.req_id || !requestChains[log.req_id];
         }
         
+        // Smart provider matching
         let matchesProvider = true;
-        if (provider) {
-            matchesProvider = log.message.toLowerCase().includes(provider);
+        if (providerFilter) {
+            matchesProvider = false;
+            
+            // Try terraform_metadata
+            if (log.terraform_metadata && log.terraform_metadata.tf_provider_addr) {
+                const parsed = parseProviderAddress(log.terraform_metadata.tf_provider_addr);
+                if (parsed && parsed.name === providerFilter) {
+                    matchesProvider = true;
+                }
+            }
+            
+            // Try raw_json if not matched
+            if (!matchesProvider && log.raw_json) {
+                try {
+                    const raw = typeof log.raw_json === 'string' ? JSON.parse(log.raw_json) : log.raw_json;
+                    if (raw.tf_provider_addr) {
+                        const parsed = parseProviderAddress(raw.tf_provider_addr);
+                        if (parsed && parsed.name === providerFilter) {
+                            matchesProvider = true;
+                        }
+                    }
+                    if (!matchesProvider && raw.tf_mux_provider) {
+                        const parsed = parseProviderAddress(raw.tf_mux_provider);
+                        if (parsed && parsed.name === providerFilter) {
+                            matchesProvider = true;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            
+            // Try extracting from message
+            if (!matchesProvider) {
+                const fromMsg = extractProviderFromMessage(log.message);
+                if (fromMsg) {
+                    const parsed = parseProviderAddress(fromMsg);
+                    if (parsed && parsed.name === providerFilter) {
+                        matchesProvider = true;
+                    }
+                }
+            }
         }
         
+        // Smart resource type matching
         let matchesResource = true;
         if (resource) {
-            matchesResource = log.message.toLowerCase().includes(resource);
+            matchesResource = false;
+            
+            // Check terraform_metadata
+            if (log.terraform_metadata) {
+                if (log.terraform_metadata.tf_resource_type && 
+                    log.terraform_metadata.tf_resource_type.toLowerCase().includes(resource)) {
+                    matchesResource = true;
+                }
+                if (!matchesResource && log.terraform_metadata.tf_data_source_type && 
+                    log.terraform_metadata.tf_data_source_type.toLowerCase().includes(resource)) {
+                    matchesResource = true;
+                }
+            }
+            
+            // Check raw_json
+            if (!matchesResource && log.raw_json) {
+                try {
+                    const raw = typeof log.raw_json === 'string' ? JSON.parse(log.raw_json) : log.raw_json;
+                    if (raw.tf_resource_type && 
+                        raw.tf_resource_type.toLowerCase().includes(resource)) {
+                        matchesResource = true;
+                    }
+                    if (!matchesResource && raw.tf_data_source_type && 
+                        raw.tf_data_source_type.toLowerCase().includes(resource)) {
+                        matchesResource = true;
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            
+            // Fallback to message search
+            if (!matchesResource) {
+                const fromMsg = extractResourceTypeFromMessage(log.message);
+                if (fromMsg && fromMsg.toLowerCase().includes(resource)) {
+                    matchesResource = true;
+                }
+            }
+            
+            // Last resort: search in message
+            if (!matchesResource) {
+                matchesResource = log.message.toLowerCase().includes(resource);
+            }
         }
         
         let matchesSection = true;
@@ -506,10 +954,10 @@ function displayLogs() {
     
     const startIdx = (currentPage - 1) * logsPerPage;
     const endIdx = startIdx + logsPerPage;
-    const pageLog = filteredLogs.slice(startIdx, endIdx);
+    const pageLogs = filteredLogs.slice(startIdx, endIdx);
     
     const sections = {};
-    pageLog.forEach(log => {
+    pageLogs.forEach(log => {
         const section = log.section_type || 'general';
         if (!sections[section]) {
             sections[section] = [];
