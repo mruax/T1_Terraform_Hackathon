@@ -128,14 +128,12 @@ function updateFileListDisplay() {
         const stats = item.querySelector('.file-item-stats');
         
         if (currentTab === 'gantt' || currentTab === 'monitoring') {
-            // Таймлайн и Мониторинг: скрыть крестики и бейджи
             if (!deleteBtn) deleteBtn.style.display = sidebarCollapsed ? 'block' : 'none';
             if (stats) {
                 const badges = stats.querySelectorAll('.stat-badge');
                 badges.forEach(badge => badge.style.display = 'none');
             }
         } else {
-            // Логи: крестики только в раскрытом виде, бейджи всегда
             if (!deleteBtn) {
                 deleteBtn.style.display = sidebarCollapsed ? 'none' : 'block';
             }
@@ -409,6 +407,7 @@ function resetAdvancedFilters() {
     document.getElementById('filterSection').value = '';
     document.getElementById('filterDateFrom').value = '';
     document.getElementById('filterDateTo').value = '';
+    document.getElementById('filterRegex').value = '';
     currentPage = 1;
     filterAndDisplay();
 }
@@ -428,6 +427,16 @@ function filterAndDisplay() {
     const section = document.getElementById('filterSection')?.value || '';
     const dateFrom = document.getElementById('filterDateFrom')?.value || '';
     const dateTo = document.getElementById('filterDateTo')?.value || '';
+    const regexPattern = document.getElementById('filterRegex')?.value || '';
+    
+    let regex = null;
+    if (regexPattern) {
+        try {
+            regex = new RegExp(regexPattern, 'i');
+        } catch (e) {
+            console.error('Invalid regex:', e);
+        }
+    }
     
     filteredLogs = allLogs.filter(log => {
         const matchesLevel = activeLevels.has(log.level);
@@ -463,8 +472,13 @@ function filterAndDisplay() {
             if (dateTo && matchesDate) matchesDate = logDate <= new Date(dateTo);
         }
         
+        let matchesRegex = true;
+        if (regex) {
+            matchesRegex = regex.test(log.message);
+        }
+        
         return matchesLevel && matchesSearch && matchesRead && matchesChain &&
-               matchesProvider && matchesResource && matchesSection && matchesDate;
+               matchesProvider && matchesResource && matchesSection && matchesDate && matchesRegex;
     });
     
     displayLogs();

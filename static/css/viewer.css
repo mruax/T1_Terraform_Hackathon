@@ -4,10 +4,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: ALS-Hauss, sans-serif;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-family: ALS-Hauss, sans-serif;
     background: #fafafa;
     min-height: 100vh;
     color: #1d1d1f;

@@ -93,6 +93,10 @@
                                 <label>Date To</label>
                                 <input type="datetime-local" id="filterDateTo">
                             </div>
+                            <div class="search-field" style="grid-column: 1 / -1;">
+                                <label>Regex Pattern</label>
+                                <input type="text" id="filterRegex" placeholder="e.g., error.*timeout|failed.*connection">
+                            </div>
                         </div>
                         <div style="margin-top: 12px; display: flex; gap: 8px;">
                             <button class="action-btn active" onclick="applyAdvancedFilters()">Apply Filters</button>
