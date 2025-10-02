@@ -17,6 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем приложение
 COPY app/ ./app/
+
+# Копируем статические файлы
+COPY static/ ./static/
+
+# Копируем главный HTML файл и конфигурацию
 COPY terraform_viewer.html .
 COPY plugin_config.json .
 
@@ -39,6 +44,9 @@ exec $cmd
 EOF
 
 RUN chmod +x /app/wait-for-db.sh
+
+# Expose port
+EXPOSE 8000
 
 # Запуск через Uvicorn с ожиданием БД
 CMD ["./wait-for-db.sh", "postgres", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]

@@ -11,9 +11,11 @@ import hashlib
 from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
+from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -61,6 +63,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+static_path = Path(__file__).parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    logger.info(f"Mounted static files from: {static_path}")
+else:
+    logger.warning(f"Static directory not found: {static_path}")
+
 
 # ==================== PYDANTIC MODELS ====================
 
@@ -102,7 +112,10 @@ class HealthStatus(BaseModel):
 @app.get("/")
 async def root():
     """Serve main HTML viewer"""
-    return FileResponse("terraform_viewer.html")
+    html_path = Path(__file__).parent.parent / "terraform_viewer.html"
+    if html_path.exists():
+        return FileResponse(str(html_path))
+    raise HTTPException(status_code=404, detail="Viewer HTML not found")
 
 
 @app.get("/api/v1/configs", tags=["Configuration"])
